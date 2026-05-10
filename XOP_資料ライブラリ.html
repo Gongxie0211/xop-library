@@ -1,0 +1,1396 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>XOP 資料ライブラリ</title>
+    <style>
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        :root {
+            --navy: #1a2744;
+            --navy-light: #253562;
+            --navy-dark: #0d1526;
+            --gold: #c9a84c;
+            --gold-light: #e2c170;
+            --gold-dark: #a07830;
+            --white: #ffffff;
+            --off-white: #f4f6fb;
+            --text-dark: #1a2744;
+            --text-mid: #4a5568;
+            --text-light: #8a98b8;
+            --bg: #f0f2f7;
+            --shadow: 0 2px 12px rgba(26, 39, 68, 0.08);
+            --radius: 10px;
+            --transition: 0.25s ease;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: 'Helvetica Neue', 'Arial', 'Hiragino Kaku Gothic ProN', 'Meiryo', sans-serif;
+            background: var(--bg);
+            color: var(--text-dark);
+            min-height: 100vh;
+        }
+
+        /* ── Header ── */
+        .header {
+            background: linear-gradient(145deg, var(--navy-dark), var(--navy));
+            border-bottom: 3px solid var(--gold);
+            padding: 20px 32px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+        }
+
+        .header-inner {
+            max-width: 1360px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .header-title {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .header-title .logo-icon {
+            width: 40px;
+            height: 40px;
+            background: var(--gold);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 900;
+            font-size: 18px;
+            color: var(--navy);
+        }
+
+        .header-title h1 {
+            font-size: 22px;
+            font-weight: 800;
+            color: var(--white);
+            letter-spacing: 1px;
+        }
+
+        .header-title .sub {
+            font-size: 11px;
+            color: var(--gold);
+            letter-spacing: 2px;
+            font-weight: 600;
+        }
+
+        .header-stats {
+            display: flex;
+            gap: 16px;
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .header-stats span {
+            color: var(--gold);
+            font-weight: 700;
+        }
+
+        /* ── Search ── */
+        .search-area {
+            max-width: 1360px;
+            margin: 16px auto 0;
+            padding: 0 32px;
+        }
+
+        .search-bar {
+            width: 100%;
+            max-width: 480px;
+            position: relative;
+        }
+
+        .search-bar input {
+            width: 100%;
+            padding: 10px 16px 10px 40px;
+            border: 2px solid rgba(201, 168, 76, 0.3);
+            border-radius: 24px;
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--white);
+            font-size: 14px;
+            outline: none;
+            transition: var(--transition);
+        }
+
+        .search-bar input::placeholder {
+            color: rgba(255, 255, 255, 0.35);
+        }
+
+        .search-bar input:focus {
+            border-color: var(--gold);
+            background: rgba(255, 255, 255, 0.12);
+        }
+
+        .search-bar .search-icon {
+            position: absolute;
+            left: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: rgba(255, 255, 255, 0.35);
+            font-size: 14px;
+        }
+
+        /* ── Main Container ── */
+        .main {
+            max-width: 1360px;
+            margin: 24px auto;
+            padding: 0 32px 80px;
+        }
+
+        /* ── Folder Sections ── */
+        .folder-section {
+            background: var(--white);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            margin-bottom: 20px;
+            overflow: hidden;
+            transition: var(--transition);
+        }
+
+        .folder-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 24px;
+            cursor: pointer;
+            user-select: none;
+            transition: var(--transition);
+            border-left: 4px solid var(--gold);
+        }
+
+        .folder-header:hover {
+            background: var(--off-white);
+        }
+
+        .folder-header .fh-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .folder-header .fh-icon {
+            font-size: 22px;
+            line-height: 1;
+        }
+
+        .folder-header .fh-name {
+            font-size: 17px;
+            font-weight: 700;
+            color: var(--navy);
+        }
+
+        .folder-header .fh-count {
+            font-size: 12px;
+            color: var(--text-light);
+            font-weight: 500;
+            margin-left: 8px;
+        }
+
+        .folder-header .fh-toggle {
+            font-size: 12px;
+            color: var(--text-light);
+            transition: var(--transition);
+        }
+
+        .folder-header .fh-toggle.open {
+            transform: rotate(180deg);
+        }
+
+        /* ── Subfolder ── */
+        .subfolder-block {
+            margin: 0 24px 12px;
+            border: 1px solid #e8ecf4;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .subfolder-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 16px;
+            background: var(--off-white);
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--navy-light);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .subfolder-header:hover {
+            background: #e8ecf4;
+        }
+
+        .subfolder-header .sf-icon {
+            font-size: 14px;
+        }
+
+        .subfolder-header .sf-count {
+            color: var(--text-light);
+            font-size: 11px;
+            font-weight: 500;
+        }
+
+        .subfolder-body {
+            display: none;
+        }
+
+        .subfolder-body.open {
+            display: block;
+        }
+
+        /* ── File Grid ── */
+        .file-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 12px;
+            padding: 16px 24px 20px;
+        }
+
+        .file-card {
+            background: var(--off-white);
+            border: 1.5px solid #e8ecf4;
+            border-radius: 8px;
+            padding: 14px;
+            cursor: pointer;
+            transition: var(--transition);
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            position: relative;
+        }
+
+        .file-card:hover {
+            border-color: var(--gold);
+            box-shadow: 0 4px 16px rgba(201, 168, 76, 0.15);
+            transform: translateY(-2px);
+        }
+
+        .file-card .fc-icon {
+            font-size: 28px;
+            line-height: 1.2;
+        }
+
+        .file-card .fc-name {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-dark);
+            line-height: 1.4;
+            word-break: break-all;
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            pointer-events: none;
+        }
+
+        .file-card-indented {
+            margin-left: 24px;
+        }
+
+        .file-card .fc-meta {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            margin-top: auto;
+            pointer-events: none;
+        }
+
+        .file-card .fc-type {
+            font-size: 10px;
+            font-weight: 700;
+            padding: 2px 8px;
+            border-radius: 4px;
+            background: var(--navy);
+            color: var(--white);
+            letter-spacing: 0.5px;
+        }
+
+        .file-card .fc-type.pdf {
+            background: #d32f2f;
+        }
+
+        .file-card .fc-type.png,
+        .file-card .fc-type.jpg,
+        .file-card .fc-type.jpeg {
+            background: #2e7d32;
+        }
+
+        .file-card .fc-type.html {
+            background: #e65100;
+        }
+
+        .file-card .fc-type.md {
+            background: #1565c0;
+        }
+
+        .file-card .fc-type.docx {
+            background: #295b9e;
+        }
+
+        .file-card .fc-type.pptx,
+        .file-card .fc-type.ppt {
+            background: #c43a31;
+        }
+
+        .file-card .fc-type.xlsx,
+        .file-card .fc-type.xls {
+            background: #1b6e4c;
+        }
+
+        .file-card .fc-type.gdoc {
+            background: #6e6e6e;
+        }
+
+        .file-card .fc-type.psd {
+            background: #673ab7;
+        }
+
+        .file-card .fc-size {
+            font-size: 10px;
+            color: var(--text-light);
+        }
+
+        /* ── Modal ── */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.75);
+            z-index: 999;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            backdrop-filter: blur(4px);
+        }
+
+        .modal-overlay.open {
+            display: flex;
+        }
+
+        .modal {
+            background: var(--white);
+            border-radius: 16px;
+            max-width: 960px;
+            width: 100%;
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            animation: modalIn 0.25s ease;
+        }
+
+        @keyframes modalIn {
+            from {
+                opacity: 0;
+                transform: scale(0.95) translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+            }
+        }
+
+        .modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 24px;
+            border-bottom: 1px solid #e8ecf4;
+            flex-shrink: 0;
+        }
+
+        .modal-header .mh-info {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            overflow: hidden;
+        }
+
+        .modal-header .mh-name {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--navy);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .modal-header .mh-folder {
+            font-size: 12px;
+            color: var(--text-light);
+        }
+
+        .modal-header .mh-actions {
+            display: flex;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+
+        .modal-header .mh-btn {
+            padding: 8px 16px;
+            border-radius: 6px;
+            border: none;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: var(--transition);
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .modal-header .mh-btn.dl {
+            background: var(--navy);
+            color: var(--white);
+        }
+
+        .modal-header .mh-btn.dl:hover {
+            background: var(--navy-light);
+        }
+
+        .modal-header .mh-btn.close {
+            background: #f0f2f7;
+            color: var(--text-mid);
+        }
+
+        .modal-header .mh-btn.close:hover {
+            background: #e0e4ed;
+        }
+
+        .modal-body {
+            flex: 1;
+            overflow: auto;
+            padding: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 300px;
+            background: #fafbfc;
+        }
+
+        .modal-body img {
+            max-width: 100%;
+            max-height: 70vh;
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .modal-body iframe {
+            width: 100%;
+            height: 70vh;
+            border: none;
+            border-radius: 8px;
+        }
+
+        .modal-body .md-render {
+            width: 100%;
+            max-width: 100%;
+            padding: 24px 32px;
+            line-height: 1.8;
+            font-size: 14px;
+            text-align: left;
+            overflow-wrap: break-word;
+        }
+
+        .modal-body .md-render h1 {
+            font-size: 22px;
+            margin: 24px 0 12px;
+            color: var(--navy);
+        }
+
+        .modal-body .md-render h2 {
+            font-size: 18px;
+            margin: 20px 0 10px;
+            color: var(--navy-light);
+        }
+
+        .modal-body .md-render h3 {
+            font-size: 15px;
+            margin: 16px 0 8px;
+        }
+
+        .modal-body .md-render p {
+            margin: 8px 0;
+        }
+
+        .modal-body .md-render ul,
+        .modal-body .md-render ol {
+            margin: 8px 0;
+            padding-left: 24px;
+        }
+
+        .modal-body .md-render li {
+            margin: 4px 0;
+        }
+
+        .modal-body .md-render strong {
+            font-weight: 700;
+        }
+
+        .modal-body .md-render table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 12px 0;
+        }
+
+        .modal-body .md-render th,
+        .modal-body .md-render td {
+            border: 1px solid #ddd;
+            padding: 8px 12px;
+            text-align: left;
+            font-size: 13px;
+        }
+
+        .modal-body .md-render th {
+            background: var(--navy);
+            color: var(--white);
+        }
+
+        .modal-body .md-render code {
+            background: #f0f2f7;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 13px;
+        }
+
+        .modal-body .md-render pre {
+            background: #f0f2f7;
+            padding: 16px;
+            border-radius: 8px;
+            overflow-x: auto;
+        }
+
+        .modal-body .md-render pre code {
+            background: none;
+            padding: 0;
+        }
+
+        .modal-body .dl-placeholder {
+            text-align: center;
+            color: var(--text-mid);
+            padding: 40px;
+        }
+
+        .modal-body .dl-placeholder .big-icon {
+            font-size: 64px;
+            margin-bottom: 16px;
+        }
+
+        .modal-body .dl-placeholder p {
+            font-size: 15px;
+            line-height: 1.6;
+        }
+
+        .modal-body .dl-placeholder .dl-link {
+            display: inline-block;
+            margin-top: 16px;
+            padding: 12px 28px;
+            background: var(--navy);
+            color: var(--white);
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 700;
+            font-size: 15px;
+            transition: var(--transition);
+        }
+
+        .modal-body .dl-placeholder .dl-link:hover {
+            background: var(--navy-light);
+        }
+
+        /* ── No Results ── */
+        .no-results {
+            text-align: center;
+            padding: 60px 24px;
+            color: var(--text-light);
+        }
+
+        .no-results .nr-icon {
+            font-size: 48px;
+            margin-bottom: 12px;
+        }
+
+        .no-results p {
+            font-size: 15px;
+        }
+
+
+
+        /* ── Special thumb colors ── */
+        .fc-thumb-pink {
+            background: #fce4ec !important;
+        }
+
+        /* ── Thumbnail ── */
+        .fc-thumb {
+            width: 100%;
+            height: 120px;
+            border-radius: 6px;
+            overflow: hidden;
+            background: #e8ecf4;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            pointer-events: none;
+        }
+
+        .fc-thumb img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            pointer-events: none;
+        }
+
+        .fc-thumb-placeholder {
+            background: #f0f2f7;
+        }
+
+        .fc-icon-big {
+            font-size: 36px;
+            line-height: 1;
+            opacity: 0.6;
+            pointer-events: none;
+        }
+
+        @media (max-width: 768px) {
+            .fc-thumb {
+                height: 90px;
+            }
+
+            .fc-icon-big {
+                font-size: 28px;
+            }
+        }
+
+
+        /* ── Dynamic classes from JS ── */
+        .file-card.pink-thumb .fc-thumb,
+        .file-card.pink-thumb .fc-thumb-placeholder {
+            background: #fce4ec !important;
+        }
+
+        .file-card.indented {
+            margin-left: 24px;
+        }
+
+        /* ── Responsive ── */
+        @media (max-width: 768px) {
+            .header {
+                padding: 14px 16px;
+            }
+
+            .header-title h1 {
+                font-size: 17px;
+            }
+
+            .header-stats {
+                display: none;
+            }
+
+            .search-area {
+                padding: 0 16px;
+            }
+
+            .search-bar {
+                max-width: 100%;
+            }
+
+            .main {
+                padding: 0 12px 60px;
+                margin-top: 12px;
+            }
+
+            .folder-header {
+                padding: 12px 16px;
+            }
+
+            .folder-header .fh-name {
+                font-size: 14px;
+            }
+
+            .file-grid {
+                grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+                gap: 8px;
+                padding: 12px 16px 16px;
+            }
+
+            .file-card {
+                padding: 10px;
+            }
+
+            .file-card .fc-icon {
+                font-size: 22px;
+            }
+
+            .file-card .fc-name {
+                font-size: 11px;
+            }
+
+            .modal {
+                max-height: 95vh;
+                border-radius: 10px;
+            }
+
+            .modal-body {
+                padding: 12px;
+            }
+
+            .modal-body iframe {
+                height: 50vh;
+            }
+
+            .modal-header .mh-name {
+                font-size: 13px;
+            }
+
+            .modal-header .mh-btn {
+                padding: 6px 12px;
+                font-size: 12px;
+            }
+
+            .subfolder-block {
+                margin: 0 12px 8px;
+            }
+        }
+
+        /* ── Visual tweaks when collapsed ── */
+        .folder-body {
+            display: none;
+        }
+
+        .folder-body.open {
+            display: block;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="header">
+        <div class="header-inner">
+            <div class="header-title">
+                <div class="logo-icon">X</div>
+                <div>
+                    <h1>XOP 資料ライブラリ</h1>
+                    <div class="sub">PROTOCARE XOP — DOCUMENT LIBRARY</div>
+                </div>
+            </div>
+            <div class="header-stats">
+                全 <span id="totalFiles">0</span> ファイル / <span>5</span> フォルダ
+            </div>
+        </div>
+        <div class="search-area">
+            <div class="search-bar">
+                <span class="search-icon">🔍</span>
+                <input type="text" id="searchInput" placeholder="ファイル名で検索..." oninput="filterFiles(this.value)">
+            </div>
+        </div>
+    </div>
+
+    <div class="main" id="library"></div>
+
+    <!-- Modal -->
+    <div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
+        <div class="modal" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <div class="mh-info">
+                    <div class="mh-name" id="modalName">ファイル名</div>
+                    <div class="mh-folder" id="modalFolder">フォルダ名</div>
+                </div>
+                <div class="mh-actions">
+                    <a class="mh-btn dl" id="modalDownload" href="#" target="_blank" rel="noopener">🔗 リンクで開く</a>
+                    <button class="mh-btn close" onclick="closeModal()">✕</button>
+                </div>
+            </div>
+            <div class="modal-body" id="modalBody">
+                <div class="dl-placeholder">
+                    <div class="big-icon">📄</div>
+                    <p>このファイルはブラウザで直接表示できません。<br>ダウンロードしてご覧ください。</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ═══════════════════════════════════════════════
+        // File Data — Google Drive links are placeholders
+        // Replace "YOUR_GOOGLE_DRIVE_LINK_HERE" with actual shared links
+        // ═══════════════════════════════════════════════
+
+        const FOLDERS = [
+            {
+                name: "XOPレビュー前資料",
+                icon: "📋",
+                files: [
+                    { name: "XOP保証書_v17.docx", ext: "docx", id: "1J9vyLq1ab4i3kVBV7nYycBZqWnr1rfsL" },
+                    { name: "XOP保証書_完成版v9.docx", ext: "docx", id: "1vk-mCr31OlKqR0ohJ6LAMm3OvW6ViJ2V" }
+                ]
+            },
+            {
+                name: "XOPレビュー完資料",
+                icon: "✅",
+                files: [
+                    { name: "XOPチラシ.png", ext: "png", id: "1f5QFkhuV0IiVGi7M0LaBfanuuE-Uj7G2" },
+                    { name: "パンフVer2外側.png", ext: "png", id: "1-epU6wyveqWiWP1Ql-rAvml7WxygfKmr" },
+                    { name: "パンフVer2内側.pdf", ext: "pdf", id: "1npDjUDy3D-tYuxX6Euwg9NGNqc__RiJV" }
+                ]
+            },
+            {
+                name: "XOP作成資料",
+                icon: "📝",
+                files: [
+                    { name: "ビルオーナー直接施工フロー.pptx", ext: "pptx", id: "1iHauQPTh2QIAXNNxYPYaUNsw5h0OThjK", display: "20260510_XOP_A Track ビルオーナー直接施工フロー.pptx" },
+                    { name: "ビジネス戦略意思決定ガイド.pptx", ext: "pptx", id: "1FyKopPK56ILjhIWbbyl8fxdsbT8Sx9lm", display: "20260510_XOPビジネス戦略意思決定ガイド.pptx" },
+                    { name: "事業概要書.md", ext: "md", id: "1uzlIoHZavQmhOWf_C7UW2RB2xeGEfJZ6", display: "「プロテケア・ヘリテージ＆インフラ」事業概要書.md" },
+                    { name: "ターゲット顧客分析.md", ext: "md", id: "1AcGjZ-neacXP67hy2ZQkudnAYq-w0l2O", display: "「プロテケア・ヘリテージ＆インフラ」事業　ターゲット顧客分析.md" },
+                    { name: "ビジネスモデル詳細.md", ext: "md", id: "1PAdG3hef-hKcKRPaCRuLFMbr1JPBX5E3", display: "「プロテケア・ヘリテージ＆インフラ」事業　ビジネスモデル詳細.md" },
+                    { name: "マーケティング戦略.md", ext: "md", id: "1g2wRqOa4Q1n7qutOwY8M4DkAvHXikAIK", display: "「プロテケア・ヘリテージ＆インフラ」事業　マーケティング戦略.md" },
+                    { name: "リスク分析.md", ext: "md", id: "1x_tDpYbYKjb7pmPYVvPvKTK1f5vUj_19", display: "「プロテケア・ヘリテージ＆インフラ」事業　リスク分析.md" },
+                    { name: "解決する課題の深掘り.md", ext: "md", id: "1G6iq4S26XaBTQz6hqA28LMYBlpdttXEo", display: "「プロテケア・ヘリテージ＆インフラ」事業　解決する課題の深掘り.md" },
+                    { name: "競合分析レポート.md", ext: "md", id: "1s5nt-EoH8D5J8xV3pRZaCOO2NHN5W8ou", display: "「プロテケア・ヘリテージ＆インフラ」事業　競合分析レポート.md" },
+                    { name: "実行スケジュール.md", ext: "md", id: "1RJiJUdiIqz7hIcMOT-eFzxIf9qWCuzfy", display: "「プロテケア・ヘリテージ＆インフラ」事業　実行スケジュール.md" },
+                    { name: "収益予測.md", ext: "md", id: "1tNTKv5fxU1Za42sGRJPFUddZ5J3c_q16", display: "「プロテケア・ヘリテージ＆インフラ」事業　収益予測.md" },
+                    { name: "Protocare XOP パンフレット.pdf", ext: "pdf", id: "1yFY5IEd2ArAu_XPAqrisPYUK6BfQJcXV", display: "20251207_Protocare XOP_ パンフレット.pdf" },
+                    { name: "XOP長期資産価値の設計.pdf", ext: "pdf", id: "1HRX8JSXMAbDa3k1s_rl6msvKcXkpkrnA", display: "20251207_XOP長期資産価値の設計.pdf" },
+                    { name: "XOPを日本中に広げる７つの作戦.pdf", ext: "pdf", id: "1EFFLeV9J17C2715Ii4cLFcfeuGUyVjuh", display: "20251211_XOPを日本中に広げる７つの作戦.pdf" },
+                    { name: "XOP事業成長戦略.pdf", ext: "pdf", id: "1WQFEkijDysF0-WKEn67Ggyjzmk2b78F5", display: "20251211_XOP事業成長戦略.pdf" },
+                    { name: "XOP Business Solution.pdf", ext: "pdf", id: "1bQBKc1eEfLJ6-UPFplIsEI7qqK1AF8ps", display: "20260510_XOP Business Solution.pdf" },
+                    { name: "EXECUTIVE SUMMARY JP.pptx", ext: "pptx", id: "1Ldo9QeRxw_nlK1wG_4rhOv-bGnc6ey61", display: "20260510_XOP_EXECUTIVE_SUMMARY_JP.pptx" },
+                    { name: "XOPって何？.pdf", ext: "pdf", id: "1VL2ImVyUY16J3eRvaMZx8LNLmv09Tt9o", display: "20260510_XOPって何？.pdf" },
+                    { name: "XOP単価.pdf", ext: "pdf", id: "111jGE0zcuigD6784Fmt9WzvFUjUV7YbF" },
+                    { name: "プロテケア事業分析.pdf", ext: "pdf", id: "1_qeCQMur5TEALvt6pmffMJxvjZJqQN8X" },
+                    { name: "ミヤキ保護剤市場競合分析と戦略立案.pdf", ext: "pdf", id: "1DiCUWgHjX1eZWfmsVff_aiiMWVphQ1_m" }
+                ],
+                subfolders: [
+                    {
+                        name: "建物の価値を永続させる新技術_XOP",
+                        icon: "🏛",
+                        files: [
+                            { name: "page 1.png", ext: "png", id: "1t31vN-yiWqd7OEfHjd2ObOcB8UThijP-" },
+                            { name: "page 2.png", ext: "png", id: "1m5J-U7hjCfGKTzXOP35SgTxDin5bpTxG" },
+                            { name: "page 3.png", ext: "png", id: "1_hArYJf0fSesxBhIo8diDWcykN98g2Ls" },
+                            { name: "page 4.png", ext: "png", id: "1UTs0A1BXAosHdYWmFFMfdTsZogslgasX" },
+                            { name: "page 5.png", ext: "png", id: "1ojuHwPVRqXFU8WZUCq9DxNWfIAyO1SRZ" },
+                            { name: "page 6.png", ext: "png", id: "1LCJZgpyE-t9KXoaIsS5q_sx_Do8H3Ffj" },
+                            { name: "page 7.png", ext: "png", id: "1dyVFzGpMTV8wL6JtyV10rvRKc_6XLyyK" },
+                            { name: "page 8.png", ext: "png", id: "1Vks-5gV_KRijzPa40FBG7PlIiZhGLoel" },
+                            { name: "page 9.png", ext: "png", id: "1EGRoZtIsXzzmH93ghHdEDWHf46yOujLQ" },
+                            { name: "page 10.png", ext: "png", id: "103mEmscTdMI9CvVfdn8mYBJT9Fny1Owl" },
+                            { name: "page 11.png", ext: "png", id: "1QoVuL5cI_7X2bGiQ24xA6lFnmNBNCSOP" }
+                        ]
+                    }
+                ]
+            },
+            {
+                name: "XOP海外 Kichi",
+                icon: "🌍",
+                files: [
+                    { name: "XOP海外原液販売戦略.pptx", ext: "pptx", id: "14hTMbvw3MFo0l0Tpl2GVVPR-nyR_6gWJ" },
+                    { name: "XOP海外原液販売戦略.html", ext: "html", id: "10zXDghXrsW6dfH6KQeWF5zBk3VodkheB", display: "20260430_XOP海外原液販売戦略.html" },
+                    { name: "モロッコの市場戦略.png", ext: "png", id: "12bEaj-mLvNAGUOHNGZCzQSH_42qJEBoR", display: "20251207_モロッコの市場戦略.png" },
+                    { name: "Protocare XOP English Brochuer.pdf", ext: "pdf", id: "10HmgdRtYKGHEC8ge-QXfmpWxaiWwp3H-" },
+                    { name: "Protocare XOP Functional Comparison.pdf", ext: "pdf", id: "1R_oFgv4IjqbCotQZbOfQDflJZqqEjjDV" },
+                    { name: "ProtocareXOP Handling.pdf", ext: "pdf", id: "1B-KD0CRhfb2GnzewX8R06jESPCGYXSMi" },
+                    { name: "ProtocareXOP UV.pdf", ext: "pdf", id: "1SASJt56DImg-rEBfIHrfMbyS2H8g3T_i" },
+                    { name: "XOP Global Expansion Blueprint.pptx", ext: "pptx", id: "1BFRBYGzSXj8AsepETcUpFxSSkgDUBUxS" },
+                    { name: "XOP Global Strategy.pptx", ext: "pptx", id: "1IMWyRNyM-XbsdiKPsko1jxvW2iAcqHoE" },
+                    { name: "XOP Overseas Expansion Guide.html", ext: "html", id: "1VrfAarDsfhAZxkEjlShcil7OuaLq90dk", display: "XOP_Overseas_Expansion_Guide_Complete.html" },
+                    { name: "XOP海外展開戦略ガイド完全版（全15カ国対応）.pdf", ext: "pdf", id: "1_IWola0_zkaeMoH5nS_xnNSG85-fCJmc" }
+                ],
+                subfolders: [
+                    {
+                        name: "モロッコブルー",
+                        icon: "🔷",
+                        files: [
+                            { name: "「モロッコブルー」と「アズライト」コンセプトに基づくラグジュアリーブランドの競争環境分析（日本市場）", ext: "other", id: "1-ZAKNDTHHGajrNf0w7trQeFjltghhYfy" },
+                            { name: "「モロッコブルー」と「アズライト」の戦略的評価：日本市場への影響", ext: "other", id: "1dT-q9atnj32rpPR-Ogokq_ALNET7CujF" },
+                            { name: "「青のシルクロード」戦略.pptx", ext: "pptx", id: "1BGEFv-B5GAMPWFIn5nTvtIjSwULJK5Ow" },
+                            { name: "モロッコ市場戦略.png", ext: "png", id: "1uk76p0vAlRJQV6HI0wCH_tKR7W-az3YU", display: "20251206_モロッコ市場戦略.png" },
+                            { name: "モロッコ戦略.pdf", ext: "pdf", id: "1YhIyZYBHTkqsVfnGcbBKK6kKqv6ojlBL", display: "20251206_モロッコ戦略.pdf" }
+                        ]
+                    }
+                ]
+            },
+            {
+                name: "XOP既存資料",
+                icon: "📚",
+                files: [
+                    { name: "プロトケアXOP日本語.docx (1)", ext: "docx", id: "1WhocYq-1qziktCUwKb606_Y-LMFDId8R", display: "20260212 プロトケアXOP日本語.docx" },
+                    { name: "プロトケアXOP日本語_.docx", ext: "docx", id: "1Z0ikW3SH0FPl8U2DEkt-H-CbsVE1ap28", display: "20260212 プロトケアXOP日本語_.docx" },
+                    { name: "プロトケアXOP日本語.html", ext: "html", id: "1u9smsyBmjjae4FqA8XuUngq7HqsbRq-W", display: "20260212 プロトケアXOP日本語.html" },
+                    { name: "プロトケアXOP日本語.pdf", ext: "pdf", id: "1JiLHco3BZKh2vih9nttT-BBn182Xe8Bs", display: "20260212 プロトケアXOP日本語.pdf" },
+                    { name: "FCの紫外線.gdoc", ext: "gdoc", id: "1EnRDd6HSjcVhZzvkQFFpMCdukfAbg7qQ90iEZ_bjR8I" },
+                    { name: "FCの紫外線.pdf", ext: "pdf", id: "1wJQ3eq6JrxBGD5rKfonIEd8HYUK65E40" },
+                    { name: "K- 石材 プロトケアFC.gdoc", ext: "gdoc", id: "1YyBQLNmEHsT4ni8-9Wwp5My51Zo6S6Oj6yoVyli_VHA" },
+                    { name: "K- 石材 プロトケアFC.pdf", ext: "pdf", id: "1bLWU0HF7-A-yFT_X-zINZ-yL330LlQF_" },
+                    { name: "miyaki2.pdf", ext: "pdf", id: "15HhgG2nKqHaPShKbl380X87YB2LTvIKd" },
+                    { name: "XOP 日本語.pdf", ext: "pdf", id: "146LRQfjHODJFTtK7zcVjPSVPn2BihcQF" },
+                    { name: "アメリカ プロトケアFC 取扱説明書.gdoc", ext: "gdoc", id: "1XSSIky5QopFoUyHfqm4Y_8BXLrSHLkagomvVObdnr7Q" },
+                    { name: "アメリカ プロトケアFC 取扱説明書.pdf", ext: "pdf", id: "1boo_vN4nwkPLExC3q448LgcSjv6w3kxB" },
+                    { name: "キーストン_ノンスリップ資料_v1.pdf", ext: "pdf", id: "1z5xHEXBO5pqhDMn-nph9sYLXp413eFLj" },
+                    { name: "プロトケアXOP メインカタログ.pdf", ext: "pdf", id: "1kkmrlgmTcDFiQaipg1_mCANW6sYMA926" },
+                    { name: "プロトケアXOP 事例集.pdf", ext: "pdf", id: "1I1CIJpoY5Noio-ZhBuMCy1S7pTrQm2Xn" },
+                    { name: "プロトケアXOP日本語パンフレット (1).pdf", ext: "pdf", id: "1XJOnFLfSfzj65VxfczXSL2e4EHqMQVY9" },
+                    { name: "プロトケアXOP日本語パンフレット.pdf", ext: "pdf", id: "1av59rAuTzX0EXUkrxCEczbBO64brB_AO" },
+                    { name: "プロトケア施工実績.pdf", ext: "pdf", id: "1oawwwKNGUFTbT5RtFALVLm1KZ0DYdOc3" },
+                    { name: "みどりコート平河町 報告書.pdf", ext: "pdf", id: "1oKiXvOSY1navjKyb9zGJaOrReYJwubHg" },
+                    { name: "伊豆 浴室床面防滑工事2025.10.24.pdf", ext: "pdf", id: "164Q57y56ags5_P70injqLJ4h7MmuSxxj" },
+                    { name: "伊豆ホテル見積.pdf", ext: "pdf", id: "1eXheQSpTaVAL_Q3ZwBXGMAv0MEbhWuU5" },
+                    { name: "伊豆ホテル見積2.pdf", ext: "pdf", id: "1k1didfWxLKxcOtvqmbz1-b08ea_lGfjl" },
+                    { name: "経過写真★2022.07.12.pdf", ext: "pdf", id: "1Err99DOACqZU3MTvQq22nrmK17l1LpsI" },
+                    { name: "参考 防水工事_保証書・雛形.docx", ext: "docx", id: "151sCIn85foK-jj7KSMtsImLeySCuJ1-y" },
+                    { name: "沼津 施工報告書.pdf", ext: "pdf", id: "12C9jEi6cIeUd0aYbq87JFpyImzJWG0Jt" },
+                    { name: "赤坂インターシティAir 施工前後写真集 QR.pdf", ext: "pdf", id: "190B5auyHfH2-JGJ86ZTt-YoSPqDNFauT" },
+                    { name: "有機合成樹脂塗料との機能比較.gdoc", ext: "gdoc", id: "1NWU5lRR-VneoQTONzg06Pkx8bZynAfam2vxREljP_pk" },
+                    { name: "有機合成樹脂塗料との機能比較.pdf", ext: "pdf", id: "1Kqddu805_g6dy_5LPqsZizUdIOU_rZui" }
+                ],
+                subfolders: [
+                    {
+                        name: "PROTECARE CATALOG",
+                        icon: "📖",
+                        files: [
+                            { name: "Protecare_english.pdf", ext: "pdf", id: "14JuVErPmwihBQ6yn0t82ZN8Av45erHnz" },
+                            { name: "XOP.pdf", ext: "pdf", id: "1pPce82CTQ6Q-9O9HsVifiYH_zcLnKITW" },
+                            { name: "page_1.psd", ext: "psd", id: "1y7HhC51C6Q4-7nw-Xb6-__7uU0irA0qL" },
+                            { name: "page_2.psd", ext: "psd", id: "1MeuiiDY9oLGTQZHlu9FHGj0Jsv6xYD2c" },
+                            { name: "page_3.psd", ext: "psd", id: "1xD87sg5EoDp7Hcf2B7_VZrg8TPM7kxeW" },
+                            { name: "page_4.psd", ext: "psd", id: "1kuPoVVfF1tinTTTQ61Rti15LVEVJ5xvD" },
+                            { name: "page_5.psd", ext: "psd", id: "1vyiUqXPaDJNnV99O3LL2ns3BfIrWdp5-" },
+                            { name: "page_6.psd", ext: "psd", id: "1lpoVjzPXubUVdPl3zNgKy5KmUPcxxTzk" },
+                            { name: "page_7.psd", ext: "psd", id: "1tPJtQwdVy95QBfiD1OgHXthuu-5XASoY" },
+                            { name: "page_8.psd", ext: "psd", id: "1X6PzSEv4Q2hidEoATzJf9nvZrezLWEgC" },
+                            { name: "page_9.psd", ext: "psd", id: "1ouc67wpd5vDrgt5N6Sn1v511wncTf3IM" },
+                            { name: "page_10.psd", ext: "psd", id: "1yAeMISRuvqjeE33o2XIzpnYqriLvpWU9" },
+                            { name: "page_11.psd", ext: "psd", id: "1I1z38vKx0WB-Upd7Wkr48wC3yLdDyT99" },
+                            { name: "page_12.psd", ext: "psd", id: "1Ly9SH15lBCoVX2itze2ejcTAMXp94U-9" }
+                        ]
+                    }
+                ]
+            }
+        ];
+
+        // ═══════════════════════════════════════════════
+        // Helpers
+        // ═══════════════════════════════════════════════
+
+        const EXT_ICONS = {
+            pdf: "📕", png: "🖼", jpg: "🖼", jpeg: "🖼", gif: "🖼",
+            html: "🌐", htm: "🌐",
+            md: "📄", markdown: "📄",
+            docx: "📝", doc: "📝",
+            pptx: "📊", ppt: "📊",
+            xlsx: "📗", xls: "📗",
+            gdoc: "📃",
+            psd: "🎨",
+            other: "📎"
+        };
+
+        function getIcon(ext) {
+            return EXT_ICONS[ext] || EXT_ICONS.other;
+        }
+
+        function getDisplayName(file) {
+            return file.display || file.name;
+        }
+
+        function fileCount(arr) {
+            let c = arr.length;
+            if (arr.subfolders) {
+                arr.subfolders.forEach(sf => { c += sf.files.length; });
+            }
+            return c;
+        }
+
+        function escapeHtml(text) {
+            const d = document.createElement('div');
+            d.textContent = text;
+            return d.innerHTML;
+        }
+
+        // ═══════════════════════════════════════════════
+        // Build Library
+        // ═══════════════════════════════════════════════
+
+        function buildLibrary() {
+            const container = document.getElementById('library');
+            let total = 0;
+            let html = '';
+
+            FOLDERS.forEach((folder, fi) => {
+                const count = fileCount(folder);
+                total += folder.files.length;
+                if (folder.subfolders) folder.subfolders.forEach(sf => total += sf.files.length);
+
+                html += `<div class="folder-section" data-folder="${fi}">`;
+                html += `<div class="folder-header" onclick="toggleFolder(${fi})">`;
+                html += `<div class="fh-left">`;
+                html += `<span class="fh-icon">${folder.icon}</span>`;
+                html += `<span class="fh-name">${escapeHtml(folder.name)}</span>`;
+                html += `<span class="fh-count">${count} ファイル</span>`;
+                html += `</div>`;
+                html += `<span class="fh-toggle" id="toggle-${fi}">▼</span>`;
+                html += `</div>`;
+                html += `<div class="folder-body open" id="body-${fi}">`;
+
+                // Main files
+                html += `<div class="file-grid" id="grid-${fi}">`;
+                folder.files.forEach((file, idx) => {
+                    html += buildFileCard(file, fi, idx);
+                });
+                html += `</div>`;
+
+                // Subfolders
+                if (folder.subfolders) {
+                    folder.subfolders.forEach((sf, sfi) => {
+                        html += `<div class="subfolder-block">`;
+                        html += `<div class="subfolder-header" onclick="toggleSubfolder(${fi},${sfi})">`;
+                        html += `<span class="sf-icon">${sf.icon}</span>`;
+                        html += `<span>${escapeHtml(sf.name)}</span>`;
+                        html += `<span class="sf-count">${sf.files.length} ファイル</span>`;
+                        html += `</div>`;
+                        html += `<div class="subfolder-body open" id="subbody-${fi}-${sfi}">`;
+                        html += `<div class="file-grid">`;
+                        sf.files.forEach((file, idx) => {
+                            html += buildFileCardSub(file, fi, sfi, idx, sf.name);
+                        });
+                        html += `</div></div></div>`;
+                    });
+                }
+
+                html += `</div>`; // folder-body
+                html += `</div>`; // folder-section
+            });
+
+            container.innerHTML = html;
+            document.getElementById('totalFiles').textContent = total;
+        }
+
+        function getThumbUrl(file) {
+            if (!file.id) return '';
+            // Google Drive provides thumbnails for all file types
+            return `https://drive.google.com/thumbnail?id=${file.id}&sz=w400`;
+        }
+
+        function buildFileCard(file, fi, idx) {
+            const ext = file.ext;
+            const icon = getIcon(ext);
+            const display = getDisplayName(file);
+            const thumbUrl = getThumbUrl(file);
+            const thumbHtml = thumbUrl ? `<div class="fc-thumb"><img src="${thumbUrl}" alt="" loading="lazy" onerror="this.parentElement.innerHTML='<div class=fc-icon-big>${icon}</div>'"></div>` : `<div class="fc-thumb fc-thumb-placeholder"><div class="fc-icon-big">${icon}</div></div>`;
+            return `<div class="file-card" onclick="openFile(${fi},-1,${idx})" data-ext="${ext}" data-name="${escapeHtml(display)}">
+    ${thumbHtml}
+    <div class="fc-name">${escapeHtml(display)}</div>
+    <div class="fc-meta"><span class="fc-type ${ext}">${ext.toUpperCase()}</span></div>
+  </div>`;
+        }
+
+        function buildFileCardSub(file, fi, sfi, idx, sfName) {
+            const ext = file.ext;
+            const icon = getIcon(ext);
+            const display = getDisplayName(file);
+            const thumbUrl = getThumbUrl(file);
+            const thumbHtml = thumbUrl ? `<div class="fc-thumb"><img src="${thumbUrl}" alt="" loading="lazy" onerror="this.parentElement.innerHTML='<div class=fc-icon-big>${icon}</div>'"></div>` : `<div class="fc-thumb fc-thumb-placeholder"><div class="fc-icon-big">${icon}</div></div>`;
+            return `<div class="file-card" onclick="openFile(${fi},${sfi},${idx})" data-ext="${ext}" data-name="${escapeHtml(display)}" data-subfolder="${escapeHtml(sfName)}">
+    ${thumbHtml}
+    <div class="fc-name">${escapeHtml(display)}</div>
+    <div class="fc-meta"><span class="fc-type ${ext}">${ext.toUpperCase()}</span></div>
+  </div>`;
+        }
+
+        // ═══════════════════════════════════════════════
+        // Modal
+        // ═══════════════════════════════════════════════
+
+        let currentFile = null;
+
+        function getDriveUrl(id, type) {
+            if (!id) return '';
+            if (type === 'thumb') return `https://lh3.googleusercontent.com/d/${id}=w400`;
+            if (type === 'preview') return `https://drive.google.com/file/d/${id}/preview`;
+            return `https://drive.google.com/uc?export=download&id=${id}`;
+        }
+
+        function openFile(fi, sfi, idx) {
+            const folder = FOLDERS[fi];
+            let file;
+            let folderName = folder.name;
+
+            if (sfi === -1) {
+                file = folder.files[idx];
+            } else {
+                file = folder.subfolders[sfi].files[idx];
+                folderName += ` / ${folder.subfolders[sfi].name}`;
+            }
+
+            currentFile = file;
+            document.getElementById('modalName').textContent = getDisplayName(file);
+            document.getElementById('modalFolder').textContent = folderName;
+            document.getElementById('modalDownload').href = getDriveUrl(file.id, 'download');
+
+            const ext = file.ext;
+            const body = document.getElementById('modalBody');
+
+            body.innerHTML = '';
+
+            if (['png', 'jpg', 'jpeg', 'gif'].includes(ext)) {
+                const imgUrl = getDriveUrl(file.id, 'thumb');
+                body.innerHTML = `<img src="${imgUrl}" alt="${escapeHtml(getDisplayName(file))}" onerror="this.innerHTML='<div class=dl-placeholder><div class=big-icon>⚠</div><p>画像の読み込みに失敗しました。<br><a class=dl-link href=${getDriveUrl(file.id, 'download')} target=_blank rel=noopener>🔗 リンクで開く</a></p></div>'">`;
+            } else if (['pdf', 'html', 'htm', 'pptx', 'docx', 'xlsx', 'txt', 'gdoc'].includes(ext)) {
+                body.innerHTML = `<iframe src="${getDriveUrl(file.id, 'preview')}" allowfullscreen></iframe>`;
+            } else if (ext === 'md') {
+                body.innerHTML = `<div class="md-render"><p style="color:var(--text-light);text-align:center;">読み込み中...</p></div>`;
+                const dlUrl = getDriveUrl(file.id, 'download');
+                fetch(dlUrl)
+                    .then(r => r.text())
+                    .then(text => {
+                        const rendered = simpleMarkdown(text);
+                        body.innerHTML = `<div class="md-render">${rendered}</div>`;
+                    })
+                    .catch(() => {
+                        body.innerHTML = `<div class="dl-placeholder">
+          <div class="big-icon">📄</div>
+          <p>Markdownファイルの読み込みに失敗しました。</p>
+          <a class="dl-link" href="${dlUrl}" target="_blank" rel="noopener">🔗 リンクで開くして表示</a>
+        </div>`;
+                    });
+            } else {
+                body.innerHTML = `<div class="dl-placeholder">
+      <div class="big-icon">${getIcon(ext)}</div>
+      <p>このファイル形式（${ext.toUpperCase()}）はブラウザで直接表示できません。</p>
+      <a class="dl-link" href="${getDriveUrl(file.id, 'download')}" target="_blank" rel="noopener">🔗 リンクで開く</a>
+    </div>`;
+            }
+
+            document.getElementById('modalOverlay').classList.add('open');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeModal(e) {
+            if (e && e.target !== document.getElementById('modalOverlay')) return;
+            document.getElementById('modalOverlay').classList.remove('open');
+            document.body.style.overflow = '';
+        }
+
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Escape') closeModal();
+        });
+
+        // ═══════════════════════════════════════════════
+        // Simple Markdown Renderer
+        // ═══════════════════════════════════════════════
+
+        function simpleMarkdown(text) {
+            let lines = text.split('\n');
+            let html = '';
+            let inTable = false;
+            let tableRows = [];
+
+            for (let i = 0; i < lines.length; i++) {
+                let line = lines[i];
+
+                // Tables
+                if (line.trim().startsWith('|')) {
+                    tableRows.push(line);
+                    inTable = true;
+                    continue;
+                } else if (inTable) {
+                    html += renderTable(tableRows);
+                    tableRows = [];
+                    inTable = false;
+                }
+
+                // Headings
+                if (/^#{1,6}\s/.test(line)) {
+                    const level = line.match(/^(#+)/)[1].length;
+                    const text = line.replace(/^#+\s*/, '');
+                    html += `<h${level}>${escapeHtml(text)}</h${level}>\n`;
+                }
+                // Horizontal rule
+                else if (/^---+\s*$/.test(line) || /^\*\*\*+\s*$/.test(line)) {
+                    html += '<hr>\n';
+                }
+                // List items
+                else if (/^[\-\*]\s/.test(line)) {
+                    const text = line.replace(/^[\-\*]\s*/, '');
+                    html += `<li>${inlineMarkdown(text)}</li>\n`;
+                }
+                else if (/^\d+\.\s/.test(line)) {
+                    const text = line.replace(/^\d+\.\s*/, '');
+                    html += `<li>${inlineMarkdown(text)}</li>\n`;
+                }
+                // Empty line
+                else if (line.trim() === '') {
+                    html += '</p><p>';
+                }
+                // Normal paragraph
+                else {
+                    html += inlineMarkdown(line) + '\n';
+                }
+            }
+
+            if (inTable) {
+                html += renderTable(tableRows);
+            }
+
+            return `<p>${html}</p>`;
+        }
+
+        function renderTable(rows) {
+            let html = '<table>';
+            rows.forEach((row, idx) => {
+                const cells = row.split('|').filter(c => c.trim() !== '');
+                if (idx === 1 && row.includes('---')) return; // skip separator
+                html += '<tr>';
+                cells.forEach(c => {
+                    const tag = idx === 0 ? 'th' : 'td';
+                    html += `<${tag}>${inlineMarkdown(c.trim())}</${tag}>`;
+                });
+                html += '</tr>';
+            });
+            html += '</table>';
+            return html;
+        }
+
+        function inlineMarkdown(text) {
+            // Bold
+            text = text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+            // Italic
+            text = text.replace(/\*(.+?)\*/g, '<em>$1</em>');
+            // Inline code
+            text = text.replace(/`(.+?)`/g, '<code>$1</code>');
+            // Links
+            text = text.replace(/\[(.+?)\]\((.+?)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+            return escapeHtml(text);
+        }
+
+        // ═══════════════════════════════════════════════
+        // Toggle
+        // ═══════════════════════════════════════════════
+
+        function toggleFolder(fi) {
+            const body = document.getElementById(`body-${fi}`);
+            const toggle = document.getElementById(`toggle-${fi}`);
+            body.classList.toggle('open');
+            toggle.classList.toggle('open');
+        }
+
+        function toggleSubfolder(fi, sfi) {
+            const body = document.getElementById(`subbody-${fi}-${sfi}`);
+            body.classList.toggle('open');
+        }
+
+        // ═══════════════════════════════════════════════
+        // Search
+        // ═══════════════════════════════════════════════
+
+        function filterFiles(query) {
+            const q = query.toLowerCase().trim();
+            const sections = document.querySelectorAll('.folder-section');
+
+            sections.forEach(section => {
+                const cards = section.querySelectorAll('.file-card');
+                let visibleCount = 0;
+
+                cards.forEach(card => {
+                    const name = card.getAttribute('data-name') || '';
+                    const match = !q || name.toLowerCase().includes(q);
+                    card.style.display = match ? '' : 'none';
+                    if (match) visibleCount++;
+                });
+
+                // Show/hide entire section
+                const subfolders = section.querySelectorAll('.subfolder-block');
+                subfolders.forEach(sf => {
+                    const sfCards = sf.querySelectorAll('.file-card');
+                    let sfVisible = 0;
+                    sfCards.forEach(c => {
+                        const n = c.getAttribute('data-name') || '';
+                        const m = !q || n.toLowerCase().includes(q);
+                        c.style.display = m ? '' : 'none';
+                        if (m) sfVisible++;
+                    });
+                    sf.style.display = sfVisible > 0 ? '' : 'none';
+                });
+
+                if (!q) {
+                    section.style.display = '';
+                    return;
+                }
+
+                const mainCards = section.querySelectorAll('.file-grid > .file-card');
+                let mainVisible = 0;
+                mainCards.forEach(c => { if (c.style.display !== 'none') mainVisible++; });
+
+                const subBlocks = section.querySelectorAll('.subfolder-block');
+                let subVisible = 0;
+                subBlocks.forEach(sb => { if (sb.style.display !== 'none') subVisible++; });
+
+                section.style.display = (visibleCount > 0 || subVisible > 0) ? '' : 'none';
+            });
+        }
+
+        // ═══════════════════════════════════════════════
+        // Init
+        // ═══════════════════════════════════════════════
+
+        // Post-process: add pink thumbs and indent
+        function postProcessCards() {
+            // XOP海外 Kichi (folder index 3): first file pink, rest indented
+            const kichiGrid = document.querySelectorAll('.folder-section')[3]?.querySelector('.file-grid');
+            if (kichiGrid) {
+                const cards = kichiGrid.querySelectorAll('.file-card');
+                if (cards.length > 0) {
+                    cards[0].classList.add('pink-thumb');
+                    for (let i = 1; i < cards.length; i++) {
+                        cards[i].classList.add('indented');
+                    }
+                }
+            }
+            // XOP作成資料 (folder index 2): first two files pink, rest indented
+            const sakuseiGrid = document.querySelectorAll('.folder-section')[2]?.querySelector('.file-grid');
+            if (sakuseiGrid) {
+                const cards2 = sakuseiGrid.querySelectorAll('.file-card');
+                for (let i = 0; i < Math.min(2, cards2.length); i++) {
+                    cards2[i].classList.add('pink-thumb');
+                }
+                for (let i = 2; i < cards2.length; i++) {
+                    cards2[i].classList.add('indented');
+                }
+            }
+        }
+
+
+        document.addEventListener('DOMContentLoaded', () => {
+            buildLibrary();
+            postProcessCards();
+        });
+    </script>
+</body>
+
+</html>
