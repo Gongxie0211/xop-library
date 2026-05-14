@@ -282,19 +282,21 @@ html,body {
 }
 .library-root-header:hover { background: var(--hover-bg); color: var(--text-1); }
 .library-root-header .remove-lib {
-  margin-left: auto;
   opacity: 0;
   background: none;
   border: none;
   color: var(--text-3);
   cursor: pointer;
-  padding: 0 2px;
-  font-size: 14px;
+  padding: 0 3px;
+  font-size: 13px;
   line-height: 1;
   border-radius: 2px;
+  flex-shrink: 0;
 }
+.library-root-header .remove-lib:first-of-type { margin-left: auto; }
 .library-root-header:hover .remove-lib { opacity: 1; }
-.library-root-header .remove-lib:hover { color: var(--danger); }
+.library-root-header .remove-lib:hover { color: var(--accent); }
+.library-root-header .remove-lib:last-child:hover { color: var(--danger); }
 
 .tree-folder {
   user-select: none;
@@ -587,6 +589,54 @@ html,body {
 /* ── Scrollbar for source textarea ── */
 textarea::-webkit-scrollbar { width: 6px; height: 6px; }
 textarea::-webkit-scrollbar-thumb { background: #555; border-radius: 3px; }
+
+/* ── Loading spinner ── */
+.spinner {
+  display: inline-block;
+  width: 12px; height: 12px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.tree-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  color: var(--text-3);
+  font-size: 12px;
+}
+
+.tree-empty {
+  padding: 20px 16px;
+  text-align: center;
+  color: var(--text-3);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.lib-count {
+  font-size: 10px;
+  color: var(--text-3);
+  font-weight: 400;
+  margin-left: 2px;
+}
+
+/* ── Print ── */
+@media print {
+  #sidebar, #topbar, #toast-container, #proto-warn { display: none !important; }
+  #app { display: block; }
+  #main { grid-column: 1; }
+  #content { overflow: visible; }
+  #md-preview, #md-preview-content { overflow: visible; height: auto; }
+  .md-rendered { max-width: 100%; padding: 0; }
+  .md-rendered pre { break-inside: avoid; }
+  .md-rendered h2, .md-rendered h3 { break-after: avoid; }
+}
 </style>
 </head>
 <body>
@@ -744,6 +794,8 @@ const DB = (() => {
 // ─────────────────────────────────────────────
 // File System
 // ─────────────────────────────────────────────
+const pendingHandles = new Map(); // id → handle (for restore banners)
+
 async function addLibrary() {
   if (!window.showDirectoryPicker) {
     toast('File System Access API が使えません。Chrome/Edge を使用し、localhost 経由で開いてください。', 'error');
@@ -753,17 +805,36 @@ async function addLibrary() {
     const handle = await window.showDirectoryPicker({ mode: 'readwrite' });
     const id = `lib_${Date.now()}`;
     await DB.put({ id, handle, name: handle.name });
-    await loadLibrary({ id, handle, name: handle.name });
+
+    // Placeholder while scanning
+    const treeEl = document.getElementById('file-tree');
+    const placeholder = document.createElement('div');
+    placeholder.className = 'tree-loading';
+    placeholder.id = `scan-spinner-${id}`;
+    placeholder.innerHTML = `<span class="spinner"></span><span>${escapeHtml(handle.name)} をスキャン中…</span>`;
+    treeEl.appendChild(placeholder);
+
+    await loadLibrary({ id, handle, name: handle.name }, false);
   } catch (e) {
     if (e.name !== 'AbortError') toast(`フォルダを開けませんでした: ${e.message}`, 'error');
   }
 }
 
-async function loadLibrary({ id, handle, name }) {
+async function loadLibrary({ id, handle, name }, showLoading = false) {
   try {
     const perm = await handle.queryPermission({ mode: 'readwrite' });
     if (perm !== 'granted') return { id, handle, name, needsRestore: true };
+
+    if (showLoading) {
+      const existing = document.getElementById(`lib-${id}`);
+      existing?.querySelector('.library-root-header')?.insertAdjacentHTML(
+        'beforeend', `<span class="spinner" id="scan-spinner-${id}"></span>`
+      );
+    }
+
     const files = await scanDir(handle, handle.name, id);
+    document.getElementById(`scan-spinner-${id}`)?.remove();
+
     const lib = { id, handle, name, files };
     const idx = state.libraries.findIndex(l => l.id === id);
     if (idx >= 0) state.libraries[idx] = lib;
@@ -771,11 +842,22 @@ async function loadLibrary({ id, handle, name }) {
     renderTree();
     return lib;
   } catch (e) {
+    document.getElementById(`scan-spinner-${id}`)?.remove();
     toast(`ライブラリの読み込みに失敗しました: ${e.message}`, 'error');
   }
 }
 
-async function restoreLibrary(id, handle, name) {
+async function rescanLibrary(id) {
+  const lib = state.libraries.find(l => l.id === id);
+  if (!lib) return;
+  await loadLibrary({ id: lib.id, handle: lib.handle, name: lib.name }, true);
+  toast(`「${lib.name}」を再スキャンしました`, 'success');
+}
+
+async function restoreLibrary(id) {
+  const handle = pendingHandles.get(id);
+  const name = handle?.name || id;
+  if (!handle) return;
   try {
     const perm = await handle.requestPermission({ mode: 'readwrite' });
     if (perm === 'granted') {
@@ -835,6 +917,7 @@ async function openFile(fileNode) {
     document.getElementById('current-path').textContent = fileNode.path;
     document.querySelectorAll('.tree-file').forEach(el => el.classList.remove('selected'));
     document.querySelector(`[data-path="${CSS.escape(fileNode.path)}"]`)?.classList.add('selected');
+    try { localStorage.setItem('xop-last-path', fileNode.path); } catch {}
   } catch (e) {
     toast(`ファイルを開けませんでした: ${e.message}`, 'error');
   }
@@ -1011,10 +1094,19 @@ function setDirty(dirty) {
 // ─────────────────────────────────────────────
 // File tree rendering
 // ─────────────────────────────────────────────
+function countFiles(nodes) {
+  let n = 0;
+  for (const node of nodes) {
+    if (node.type === 'file') n++;
+    else if (node.children) n += countFiles(node.children);
+  }
+  return n;
+}
+
 function renderTree() {
   const container = document.getElementById('file-tree');
   if (!state.libraries.length) {
-    container.innerHTML = '<div style="padding:16px 12px;color:var(--text-3);font-size:12px;text-align:center">フォルダを追加してください</div>';
+    container.innerHTML = '<div class="tree-empty">フォルダを追加してください</div>';
     return;
   }
   container.innerHTML = '';
@@ -1028,12 +1120,15 @@ function buildLibraryNode(lib) {
   root.className = 'library-root';
   root.id = `lib-${lib.id}`;
 
+  const total = countFiles(lib.files);
   const header = document.createElement('div');
   header.className = 'library-root-header';
   header.innerHTML = `
     <span class="tree-chevron" id="chevron-${lib.id}">▼</span>
     <span>📁</span>
     <span class="tree-name">${escapeHtml(lib.name)}</span>
+    <span class="lib-count">(${total})</span>
+    <button class="remove-lib" onclick="event.stopPropagation();rescanLibrary('${lib.id}')" title="再スキャン" style="opacity:0;margin-left:0">↺</button>
     <button class="remove-lib" onclick="event.stopPropagation();confirmRemoveLibrary('${lib.id}')" title="ライブラリを削除">✕</button>
   `;
 
@@ -1051,7 +1146,11 @@ function buildLibraryNode(lib) {
   root.appendChild(header);
 
   const filtered = filterAndSort(lib.files);
-  filtered.forEach(node => children.appendChild(buildNode(node)));
+  if (!filtered.length) {
+    children.innerHTML = '<div class="tree-empty">該当するファイルがありません</div>';
+  } else {
+    filtered.forEach(node => children.appendChild(buildNode(node)));
+  }
   root.appendChild(children);
   return root;
 }
@@ -1106,7 +1205,7 @@ function buildNode(node, depth = 0) {
     <span class="tree-icon">${icon}</span>
     <span class="tree-name" title="${escapeHtml(node.path)}">${escapeHtml(node.name)}</span>
     ${badge}
-    <span class="tree-meta">${date}</span>
+    <span class="tree-meta">${date}${size ? ' · ' + size : ''}</span>
   `;
 
   el.addEventListener('click', () => openFile(node));
@@ -1316,32 +1415,58 @@ async function init() {
   }
 
   // Restore libraries from IndexedDB
+  let lastPath = null;
+  try { lastPath = localStorage.getItem('xop-last-path'); } catch {}
+
   try {
     const records = await DB.getAll();
-    const restoreContainer = document.getElementById('file-tree');
+    const sidebar = document.getElementById('sidebar');
+    const treeEl = document.getElementById('file-tree');
 
     for (const { id, handle, name } of records) {
       const perm = await handle.queryPermission({ mode: 'readwrite' });
       if (perm === 'granted') {
-        await loadLibrary({ id, handle, name });
+        await loadLibrary({ id, handle, name }, false);
       } else {
-        // Show restore banner
+        pendingHandles.set(id, handle);
         const banner = document.createElement('div');
         banner.className = 'restore-banner';
         banner.id = `restore-${id}`;
         banner.innerHTML = `
           <span>📁 ${escapeHtml(name)}</span>
-          <button onclick="restoreLibrary('${id}', this.__handle, '${escapeHtml(name)}')">アクセスを復元</button>
+          <button onclick="restoreLibrary('${escapeHtml(id)}')">アクセスを復元</button>
         `;
-        // store handle reference on button
-        banner.querySelector('button').__handle = handle;
-        // Insert before file tree
-        document.getElementById('sidebar').insertBefore(banner, restoreContainer);
+        sidebar.insertBefore(banner, treeEl);
       }
+    }
+
+    // Auto-open last file
+    if (lastPath) {
+      const node = findFileByPath(lastPath);
+      if (node) openFile(node);
     }
   } catch (e) {
     console.warn('IndexedDB restore failed:', e);
   }
+}
+
+function findFileByPath(path) {
+  for (const lib of state.libraries) {
+    const found = searchNodes(lib.files, path);
+    if (found) return found;
+  }
+  return null;
+}
+
+function searchNodes(nodes, path) {
+  for (const node of nodes) {
+    if (node.type === 'file' && node.path === path) return node;
+    if (node.type === 'dir' && node.children) {
+      const found = searchNodes(node.children, path);
+      if (found) return found;
+    }
+  }
+  return null;
 }
 
 init();
