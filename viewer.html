@@ -1,0 +1,1350 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>XOP Viewer</title>
+<script src="https://cdn.jsdelivr.net/npm/marked@9/marked.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css" id="hljs-light">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+:root {
+  --sidebar-w: 260px;
+  --topbar-h: 48px;
+  --sidebar-bg: #1c1c1e;
+  --sidebar-border: #2c2c2e;
+  --topbar-bg: #242426;
+  --topbar-border: #3a3a3c;
+  --accent: #4a9eff;
+  --accent-hover: #3a8eef;
+  --danger: #ff453a;
+  --text-1: #e8e8ea;
+  --text-2: #8e8e93;
+  --text-3: #5a5a5e;
+  --hover-bg: #2a2a2c;
+  --selected-bg: #313133;
+  --border: #3a3a3c;
+  --input-bg: #2c2c2e;
+  --btn-bg: #3a3a3c;
+  --btn-hover: #4a4a4e;
+  --content-bg: #ffffff;
+  --preview-bg: #fafafa;
+  --source-bg: #1e1e20;
+  --source-text: #e8e8ea;
+  --tag-html: #ff9f0a;
+  --tag-md: #30d158;
+  --radius: 6px;
+  --radius-sm: 4px;
+}
+
+html,body {
+  height: 100%;
+  background: var(--sidebar-bg);
+  color: var(--text-1);
+  font-family: -apple-system, 'Helvetica Neue', 'Hiragino Sans', sans-serif;
+  font-size: 13px;
+  overflow: hidden;
+}
+
+/* ── App layout ── */
+#app {
+  display: grid;
+  grid-template-columns: var(--sidebar-w) 1fr;
+  grid-template-rows: var(--topbar-h) 1fr;
+  height: 100vh;
+  transition: grid-template-columns 0.2s ease;
+}
+#app.sidebar-collapsed {
+  grid-template-columns: 0 1fr;
+}
+
+/* ── Topbar ── */
+#topbar {
+  grid-column: 1 / -1;
+  grid-row: 1;
+  background: var(--topbar-bg);
+  border-bottom: 1px solid var(--topbar-border);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  overflow: hidden;
+  z-index: 10;
+}
+
+#sidebar-toggle {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  color: var(--text-2);
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: var(--radius-sm);
+  font-size: 16px;
+  line-height: 1;
+}
+#sidebar-toggle:hover { background: var(--hover-bg); color: var(--text-1); }
+
+#current-path {
+  flex: 1;
+  font-size: 11px;
+  color: var(--text-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: 'SF Mono', 'Menlo', monospace;
+}
+
+#dirty-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--danger);
+  flex-shrink: 0;
+  display: none;
+}
+#dirty-dot.visible { display: block; }
+
+.topbar-sep {
+  width: 1px; height: 20px;
+  background: var(--border);
+  flex-shrink: 0;
+}
+
+#mode-buttons {
+  display: flex;
+  gap: 2px;
+}
+#mode-buttons button {
+  background: none;
+  border: 1px solid transparent;
+  color: var(--text-2);
+  cursor: pointer;
+  padding: 3px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  white-space: nowrap;
+}
+#mode-buttons button:hover { background: var(--hover-bg); color: var(--text-1); }
+#mode-buttons button.active {
+  background: var(--selected-bg);
+  border-color: var(--border);
+  color: var(--text-1);
+}
+
+#action-buttons {
+  display: flex;
+  gap: 4px;
+  margin-left: 4px;
+}
+.action-btn {
+  background: var(--btn-bg);
+  border: none;
+  color: var(--text-1);
+  cursor: pointer;
+  padding: 4px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.action-btn:hover { background: var(--btn-hover); }
+.action-btn.primary {
+  background: var(--accent);
+  color: #fff;
+}
+.action-btn.primary:hover { background: var(--accent-hover); }
+
+/* ── Sidebar ── */
+#sidebar {
+  grid-column: 1;
+  grid-row: 2;
+  background: var(--sidebar-bg);
+  border-right: 1px solid var(--sidebar-border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+#app.sidebar-collapsed #sidebar { overflow: hidden; }
+
+.sidebar-header {
+  padding: 12px;
+  border-bottom: 1px solid var(--sidebar-border);
+  flex-shrink: 0;
+}
+
+.sidebar-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--text-2);
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+#add-library-btn {
+  width: 100%;
+  background: var(--input-bg);
+  border: 1px dashed var(--border);
+  color: var(--text-2);
+  cursor: pointer;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: border-color 0.15s, color 0.15s;
+}
+#add-library-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+#add-library-btn .icon { font-size: 14px; }
+
+.sidebar-search {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--sidebar-border);
+  flex-shrink: 0;
+}
+.sidebar-search input {
+  width: 100%;
+  background: var(--input-bg);
+  border: 1px solid var(--border);
+  color: var(--text-1);
+  padding: 5px 8px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  outline: none;
+}
+.sidebar-search input:focus { border-color: var(--accent); }
+.sidebar-search input::placeholder { color: var(--text-3); }
+
+.sidebar-filters {
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--sidebar-border);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.filter-tabs {
+  display: flex;
+  gap: 2px;
+  flex: 1;
+}
+.filter-tab {
+  background: none;
+  border: none;
+  color: var(--text-2);
+  cursor: pointer;
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  font-weight: 500;
+}
+.filter-tab:hover { background: var(--hover-bg); }
+.filter-tab.active { background: var(--selected-bg); color: var(--text-1); }
+
+.sort-select {
+  background: var(--input-bg);
+  border: 1px solid var(--border);
+  color: var(--text-2);
+  padding: 2px 4px;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  outline: none;
+  cursor: pointer;
+}
+
+#file-tree {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px 0;
+}
+#file-tree::-webkit-scrollbar { width: 4px; }
+#file-tree::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+/* ── Tree nodes ── */
+.library-root {
+  margin-bottom: 2px;
+}
+.library-root-header {
+  display: flex;
+  align-items: center;
+  padding: 5px 8px 5px 12px;
+  cursor: pointer;
+  color: var(--text-2);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  gap: 4px;
+}
+.library-root-header:hover { background: var(--hover-bg); color: var(--text-1); }
+.library-root-header .remove-lib {
+  margin-left: auto;
+  opacity: 0;
+  background: none;
+  border: none;
+  color: var(--text-3);
+  cursor: pointer;
+  padding: 0 2px;
+  font-size: 14px;
+  line-height: 1;
+  border-radius: 2px;
+}
+.library-root-header:hover .remove-lib { opacity: 1; }
+.library-root-header .remove-lib:hover { color: var(--danger); }
+
+.tree-folder {
+  user-select: none;
+}
+.tree-folder-header {
+  display: flex;
+  align-items: center;
+  padding: 3px 8px;
+  cursor: pointer;
+  gap: 4px;
+  border-radius: 0;
+}
+.tree-folder-header:hover { background: var(--hover-bg); }
+
+.tree-file {
+  display: flex;
+  align-items: center;
+  padding: 3px 8px;
+  cursor: pointer;
+  gap: 6px;
+  border-radius: 0;
+}
+.tree-file:hover { background: var(--hover-bg); }
+.tree-file.selected { background: var(--selected-bg); }
+
+.tree-icon { font-size: 13px; flex-shrink: 0; }
+.tree-chevron { font-size: 10px; color: var(--text-3); flex-shrink: 0; width: 12px; }
+.tree-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+}
+.tree-meta {
+  font-size: 10px;
+  color: var(--text-3);
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.file-type-badge {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 4px;
+  border-radius: 3px;
+  flex-shrink: 0;
+  letter-spacing: 0.04em;
+}
+.badge-html { background: #ff9f0a22; color: var(--tag-html); }
+.badge-md   { background: #30d15822; color: var(--tag-md); }
+
+.restore-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px;
+  background: #ff9f0a18;
+  border-bottom: 1px solid #ff9f0a33;
+  font-size: 11px;
+  color: #ff9f0a;
+  flex-shrink: 0;
+}
+.restore-banner button {
+  background: #ff9f0a;
+  border: none;
+  color: #000;
+  padding: 2px 8px;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+/* ── Main content ── */
+#main {
+  grid-column: 2;
+  grid-row: 2;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--content-bg);
+}
+
+#content {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  position: relative;
+}
+
+/* ── Empty state ── */
+#empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  height: 100%;
+  width: 100%;
+  color: var(--text-3);
+  background: var(--sidebar-bg);
+}
+#empty-state .empty-icon { font-size: 48px; }
+#empty-state p { font-size: 13px; color: var(--text-2); }
+#empty-state small { font-size: 11px; color: var(--text-3); }
+
+/* ── HTML viewer ── */
+#html-viewer {
+  display: none;
+  flex: 1;
+  overflow: hidden;
+}
+#html-viewer iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+  display: block;
+}
+
+/* ── MD modes ── */
+#md-source, #md-split, #md-preview {
+  display: none;
+  flex: 1;
+  overflow: hidden;
+}
+
+#md-source textarea, #split-source {
+  width: 100%;
+  height: 100%;
+  background: var(--source-bg);
+  color: var(--source-text);
+  border: none;
+  padding: 20px;
+  font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
+  font-size: 13px;
+  line-height: 1.7;
+  resize: none;
+  outline: none;
+  tab-size: 2;
+}
+
+#md-split {
+  flex-direction: row;
+}
+#split-source-wrap {
+  flex: 1;
+  overflow: hidden;
+  border-right: 1px solid var(--border);
+}
+#split-source {
+  width: 100%;
+  height: 100%;
+  background: var(--source-bg);
+  color: var(--source-text);
+  border: none;
+  padding: 20px;
+  font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
+  font-size: 13px;
+  line-height: 1.7;
+  resize: none;
+  outline: none;
+  tab-size: 2;
+}
+#split-preview-wrap {
+  flex: 1;
+  overflow-y: auto;
+  background: var(--preview-bg);
+}
+#split-preview-wrap::-webkit-scrollbar { width: 6px; }
+#split-preview-wrap::-webkit-scrollbar-thumb { background: #ccc; border-radius: 3px; }
+
+#md-preview {
+  overflow-y: auto;
+  background: var(--preview-bg);
+}
+#md-preview::-webkit-scrollbar { width: 6px; }
+#md-preview::-webkit-scrollbar-thumb { background: #ccc; border-radius: 3px; }
+
+.md-rendered {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 40px 40px;
+  color: #1a1a1a;
+  line-height: 1.75;
+  font-size: 15px;
+}
+
+/* ── Markdown rendered styles ── */
+.md-rendered h1 { font-size: 2em; font-weight: 700; margin: 0 0 .5em; border-bottom: 2px solid #e8e8e8; padding-bottom: .3em; }
+.md-rendered h2 { font-size: 1.5em; font-weight: 700; margin: 1.5em 0 .5em; border-bottom: 1px solid #e8e8e8; padding-bottom: .2em; }
+.md-rendered h3 { font-size: 1.2em; font-weight: 600; margin: 1.2em 0 .4em; }
+.md-rendered h4 { font-size: 1em; font-weight: 600; margin: 1em 0 .3em; }
+.md-rendered p { margin: .8em 0; }
+.md-rendered ul, .md-rendered ol { margin: .6em 0; padding-left: 1.6em; }
+.md-rendered li { margin: .25em 0; }
+.md-rendered blockquote {
+  margin: 1em 0;
+  padding: .5em 1em;
+  border-left: 4px solid #d0d0d0;
+  color: #555;
+  background: #f8f8f8;
+  border-radius: 0 4px 4px 0;
+}
+.md-rendered code {
+  font-family: 'SF Mono', 'Menlo', monospace;
+  font-size: .88em;
+  background: #f0f0f0;
+  padding: .15em .35em;
+  border-radius: 3px;
+}
+.md-rendered pre {
+  margin: 1em 0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.md-rendered pre code {
+  background: none;
+  padding: 0;
+  font-size: .85em;
+}
+.md-rendered pre.hljs {
+  padding: 16px 20px;
+  overflow-x: auto;
+}
+.md-rendered hr { border: none; border-top: 1px solid #e0e0e0; margin: 1.5em 0; }
+.md-rendered a { color: #3a7eef; text-decoration: none; }
+.md-rendered a:hover { text-decoration: underline; }
+.md-rendered table { border-collapse: collapse; width: 100%; margin: 1em 0; }
+.md-rendered th, .md-rendered td { border: 1px solid #e0e0e0; padding: 6px 12px; text-align: left; }
+.md-rendered th { background: #f5f5f5; font-weight: 600; }
+.md-rendered img { max-width: 100%; border-radius: 4px; }
+.md-rendered strong { font-weight: 700; }
+.md-rendered em { font-style: italic; }
+
+/* ── Toast ── */
+#toast-container {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+.toast {
+  background: #2c2c2e;
+  color: #e8e8ea;
+  padding: 10px 16px;
+  border-radius: var(--radius);
+  font-size: 13px;
+  border-left: 3px solid var(--accent);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+  animation: toast-in 0.2s ease;
+  pointer-events: auto;
+}
+.toast.error { border-left-color: var(--danger); }
+.toast.success { border-left-color: var(--tag-md); }
+@keyframes toast-in { from { transform: translateX(20px); opacity: 0; } }
+
+/* ── Protocol warning ── */
+#proto-warn {
+  display: none;
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  background: #ff453a;
+  color: #fff;
+  text-align: center;
+  padding: 8px 16px;
+  font-size: 12px;
+  z-index: 999;
+}
+
+/* ── Resizer ── */
+#sidebar-resizer {
+  position: absolute;
+  left: var(--sidebar-w);
+  top: var(--topbar-h);
+  width: 4px;
+  height: calc(100vh - var(--topbar-h));
+  cursor: col-resize;
+  z-index: 20;
+  background: transparent;
+}
+#sidebar-resizer:hover, #sidebar-resizer.dragging {
+  background: var(--accent);
+}
+
+/* ── Scrollbar for source textarea ── */
+textarea::-webkit-scrollbar { width: 6px; height: 6px; }
+textarea::-webkit-scrollbar-thumb { background: #555; border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<div id="proto-warn">
+  ⚠️ このアプリは localhost 経由で開く必要があります。
+  <code>python -m http.server 8080</code> を実行後、<a href="http://localhost:8080/viewer.html" style="color:#fff">http://localhost:8080/viewer.html</a> を開いてください。
+</div>
+
+<div id="app">
+  <!-- Topbar -->
+  <div id="topbar">
+    <button id="sidebar-toggle" title="サイドバー切替">☰</button>
+    <span id="current-path">ファイルを選択してください</span>
+    <span id="dirty-dot" title="未保存の変更があります"></span>
+    <div class="topbar-sep"></div>
+    <div id="mode-buttons"></div>
+    <div id="action-buttons">
+      <button class="action-btn" id="pdf-btn" style="display:none" onclick="printFile()">PDF</button>
+      <button class="action-btn" id="export-btn" style="display:none" onclick="exportHTML()">書き出し</button>
+      <button class="action-btn primary" id="save-btn" style="display:none" onclick="saveFile()">保存</button>
+    </div>
+  </div>
+
+  <!-- Sidebar -->
+  <div id="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-title">ライブラリ</div>
+      <button id="add-library-btn" onclick="addLibrary()">
+        <span class="icon">＋</span> フォルダを追加
+      </button>
+    </div>
+    <div class="sidebar-search">
+      <input type="text" id="search-input" placeholder="検索（ファイル名）" oninput="onSearch(this.value)">
+    </div>
+    <div class="sidebar-filters">
+      <div class="filter-tabs">
+        <button class="filter-tab active" data-filter="all" onclick="setFilter('all')">ALL</button>
+        <button class="filter-tab" data-filter="html" onclick="setFilter('html')">HTML</button>
+        <button class="filter-tab" data-filter="md" onclick="setFilter('md')">MD</button>
+      </div>
+      <select class="sort-select" id="sort-select" onchange="setSort(this.value)">
+        <option value="date-desc">日付↓</option>
+        <option value="date-asc">日付↑</option>
+        <option value="name-asc">名前↑</option>
+        <option value="name-desc">名前↓</option>
+      </select>
+    </div>
+    <div id="file-tree"></div>
+  </div>
+
+  <!-- Main content -->
+  <div id="main">
+    <div id="content">
+      <!-- Empty state -->
+      <div id="empty-state">
+        <div class="empty-icon">📂</div>
+        <p>左のサイドバーからフォルダを追加してください</p>
+        <small>HTML と Markdown ファイルを閲覧・編集できます</small>
+      </div>
+
+      <!-- HTML viewer -->
+      <div id="html-viewer">
+        <iframe id="html-iframe" sandbox="allow-scripts allow-same-origin allow-forms" title="HTMLプレビュー"></iframe>
+      </div>
+
+      <!-- MD: source only -->
+      <div id="md-source">
+        <textarea id="md-source-ta" spellcheck="false" oninput="onSourceInput(this.value)"></textarea>
+      </div>
+
+      <!-- MD: split -->
+      <div id="md-split">
+        <div id="split-source-wrap">
+          <textarea id="split-source" spellcheck="false" oninput="onSourceInput(this.value)" onscroll="syncScroll(this)"></textarea>
+        </div>
+        <div id="split-preview-wrap">
+          <div id="split-preview" class="md-rendered"></div>
+        </div>
+      </div>
+
+      <!-- MD: preview only -->
+      <div id="md-preview">
+        <div id="md-preview-content" class="md-rendered"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast-container"></div>
+
+<script>
+// ─────────────────────────────────────────────
+// State
+// ─────────────────────────────────────────────
+const state = {
+  libraries: [],       // [{ id, handle, name, files }]
+  currentFile: null,   // { handle, path, libId, type, content }
+  currentMode: 'preview',
+  filter: 'all',
+  sort: 'date-desc',
+  searchQuery: '',
+  isDirty: false,
+};
+
+// ─────────────────────────────────────────────
+// IndexedDB
+// ─────────────────────────────────────────────
+const DB = (() => {
+  const NAME = 'xop-viewer', STORE = 'dirs', VER = 1;
+  let db;
+
+  async function open() {
+    return new Promise((res, rej) => {
+      const req = indexedDB.open(NAME, VER);
+      req.onupgradeneeded = e => e.target.result.createObjectStore(STORE, { keyPath: 'id' });
+      req.onsuccess = e => { db = e.target.result; res(db); };
+      req.onerror = e => rej(e.target.error);
+    });
+  }
+
+  async function getAll() {
+    await open();
+    return new Promise((res, rej) => {
+      const tx = db.transaction(STORE, 'readonly');
+      const req = tx.objectStore(STORE).getAll();
+      req.onsuccess = () => res(req.result);
+      req.onerror = () => rej(req.error);
+    });
+  }
+
+  async function put(record) {
+    await open();
+    return new Promise((res, rej) => {
+      const tx = db.transaction(STORE, 'readwrite');
+      const req = tx.objectStore(STORE).put(record);
+      req.onsuccess = () => res();
+      req.onerror = () => rej(req.error);
+    });
+  }
+
+  async function remove(id) {
+    await open();
+    return new Promise((res, rej) => {
+      const tx = db.transaction(STORE, 'readwrite');
+      const req = tx.objectStore(STORE).delete(id);
+      req.onsuccess = () => res();
+      req.onerror = () => rej(req.error);
+    });
+  }
+
+  return { getAll, put, remove };
+})();
+
+// ─────────────────────────────────────────────
+// File System
+// ─────────────────────────────────────────────
+async function addLibrary() {
+  if (!window.showDirectoryPicker) {
+    toast('File System Access API が使えません。Chrome/Edge を使用し、localhost 経由で開いてください。', 'error');
+    return;
+  }
+  try {
+    const handle = await window.showDirectoryPicker({ mode: 'readwrite' });
+    const id = `lib_${Date.now()}`;
+    await DB.put({ id, handle, name: handle.name });
+    await loadLibrary({ id, handle, name: handle.name });
+  } catch (e) {
+    if (e.name !== 'AbortError') toast(`フォルダを開けませんでした: ${e.message}`, 'error');
+  }
+}
+
+async function loadLibrary({ id, handle, name }) {
+  try {
+    const perm = await handle.queryPermission({ mode: 'readwrite' });
+    if (perm !== 'granted') return { id, handle, name, needsRestore: true };
+    const files = await scanDir(handle, handle.name, id);
+    const lib = { id, handle, name, files };
+    const idx = state.libraries.findIndex(l => l.id === id);
+    if (idx >= 0) state.libraries[idx] = lib;
+    else state.libraries.push(lib);
+    renderTree();
+    return lib;
+  } catch (e) {
+    toast(`ライブラリの読み込みに失敗しました: ${e.message}`, 'error');
+  }
+}
+
+async function restoreLibrary(id, handle, name) {
+  try {
+    const perm = await handle.requestPermission({ mode: 'readwrite' });
+    if (perm === 'granted') {
+      await loadLibrary({ id, handle, name });
+      document.getElementById(`restore-${id}`)?.remove();
+    }
+  } catch (e) {
+    toast('権限の復元に失敗しました', 'error');
+  }
+}
+
+async function removeLibrary(id) {
+  state.libraries = state.libraries.filter(l => l.id !== id);
+  await DB.remove(id);
+  if (state.currentFile?.libId === id) closeFile();
+  renderTree();
+}
+
+async function scanDir(dirHandle, basePath, libId) {
+  const files = [];
+  for await (const [name, handle] of dirHandle.entries()) {
+    const path = `${basePath}/${name}`;
+    if (handle.kind === 'directory') {
+      const sub = await scanDir(handle, path, libId);
+      if (sub.length) files.push({ type: 'dir', name, path, handle, children: sub });
+    } else {
+      const ext = name.split('.').pop().toLowerCase();
+      if (['html', 'htm', 'md', 'markdown'].includes(ext)) {
+        const file = await handle.getFile();
+        files.push({
+          type: 'file',
+          name,
+          path,
+          handle,
+          ext: ['html','htm'].includes(ext) ? 'html' : 'md',
+          size: file.size,
+          modified: file.lastModified,
+          libId,
+        });
+      }
+    }
+  }
+  return files;
+}
+
+async function openFile(fileNode) {
+  if (state.isDirty) {
+    if (!confirm(`「${state.currentFile?.handle.name}」に未保存の変更があります。破棄しますか？`)) return;
+  }
+  try {
+    const file = await fileNode.handle.getFile();
+    const content = await file.text();
+    state.currentFile = { handle: fileNode.handle, path: fileNode.path, libId: fileNode.libId, type: fileNode.ext, content };
+    state.isDirty = false;
+    renderFile();
+    updateTopbar();
+    document.getElementById('current-path').textContent = fileNode.path;
+    document.querySelectorAll('.tree-file').forEach(el => el.classList.remove('selected'));
+    document.querySelector(`[data-path="${CSS.escape(fileNode.path)}"]`)?.classList.add('selected');
+  } catch (e) {
+    toast(`ファイルを開けませんでした: ${e.message}`, 'error');
+  }
+}
+
+function closeFile() {
+  state.currentFile = null;
+  state.isDirty = false;
+  showPanel('empty');
+  document.getElementById('current-path').textContent = 'ファイルを選択してください';
+  updateTopbar();
+}
+
+async function saveFile() {
+  if (!state.currentFile) return;
+  try {
+    const content = getEditorContent();
+    const writable = await state.currentFile.handle.createWritable();
+    await writable.write(content);
+    await writable.close();
+    state.currentFile.content = content;
+    setDirty(false);
+    toast('保存しました', 'success');
+  } catch (e) {
+    toast(`保存に失敗しました: ${e.message}`, 'error');
+  }
+}
+
+// ─────────────────────────────────────────────
+// Rendering
+// ─────────────────────────────────────────────
+function renderFile() {
+  const { type, content } = state.currentFile;
+  if (type === 'html') {
+    renderHTML(content);
+  } else {
+    const defaultMode = 'preview';
+    state.currentMode = defaultMode;
+    renderMD(content, defaultMode);
+  }
+}
+
+function renderHTML(content) {
+  showPanel('html');
+  document.getElementById('html-iframe').srcdoc = content;
+}
+
+function renderMD(content, mode) {
+  state.currentMode = mode;
+  if (mode === 'source') {
+    showPanel('md-source');
+    document.getElementById('md-source-ta').value = content;
+  } else if (mode === 'split') {
+    showPanel('md-split');
+    document.getElementById('split-source').value = content;
+    document.getElementById('split-preview').innerHTML = parseMD(content);
+    applyHighlight(document.getElementById('split-preview'));
+  } else {
+    showPanel('md-preview');
+    document.getElementById('md-preview-content').innerHTML = parseMD(content);
+    applyHighlight(document.getElementById('md-preview-content'));
+  }
+  updateModeButtons();
+}
+
+function parseMD(content) {
+  if (typeof marked === 'undefined') return `<pre>${escapeHtml(content)}</pre>`;
+  marked.setOptions({ breaks: true, gfm: true });
+  return marked.parse(content);
+}
+
+function applyHighlight(container) {
+  if (typeof hljs === 'undefined') return;
+  container.querySelectorAll('pre code').forEach(block => {
+    hljs.highlightElement(block);
+    block.parentElement.classList.add('hljs');
+  });
+}
+
+function showPanel(name) {
+  const map = {
+    'empty':      'empty-state',
+    'html':       'html-viewer',
+    'md-source':  'md-source',
+    'md-split':   'md-split',
+    'md-preview': 'md-preview',
+  };
+  Object.values(map).forEach(id => {
+    document.getElementById(id).style.display = 'none';
+  });
+  const target = map[name];
+  if (target) document.getElementById(target).style.display = 'flex';
+}
+
+// ─────────────────────────────────────────────
+// Topbar
+// ─────────────────────────────────────────────
+function updateTopbar() {
+  const { currentFile } = state;
+  const modeEl = document.getElementById('mode-buttons');
+  const saveBtn = document.getElementById('save-btn');
+  const exportBtn = document.getElementById('export-btn');
+  const pdfBtn = document.getElementById('pdf-btn');
+
+  if (!currentFile) {
+    modeEl.innerHTML = '';
+    saveBtn.style.display = 'none';
+    exportBtn.style.display = 'none';
+    pdfBtn.style.display = 'none';
+    return;
+  }
+
+  saveBtn.style.display = '';
+  pdfBtn.style.display = '';
+
+  if (currentFile.type === 'html') {
+    modeEl.innerHTML = `<button class="active" onclick="void(0)">閲覧</button>`;
+    exportBtn.style.display = 'none';
+  } else {
+    exportBtn.style.display = '';
+    modeEl.innerHTML = `
+      <button data-mode="source" onclick="switchMode('source')">ソース</button>
+      <button data-mode="split"  onclick="switchMode('split')">並列</button>
+      <button data-mode="preview" onclick="switchMode('preview')">プレビュー</button>
+    `;
+    updateModeButtons();
+  }
+}
+
+function updateModeButtons() {
+  document.querySelectorAll('#mode-buttons button[data-mode]').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.mode === state.currentMode);
+  });
+}
+
+function switchMode(mode) {
+  if (!state.currentFile || state.currentFile.type !== 'md') return;
+  const content = getEditorContent();
+  state.currentFile.content = content;
+  renderMD(content, mode);
+}
+
+function getEditorContent() {
+  if (!state.currentFile) return '';
+  if (state.currentFile.type === 'html') return state.currentFile.content;
+  if (state.currentMode === 'source') return document.getElementById('md-source-ta').value;
+  if (state.currentMode === 'split') return document.getElementById('split-source').value;
+  return state.currentFile.content;
+}
+
+// ─────────────────────────────────────────────
+// Editor events
+// ─────────────────────────────────────────────
+function onSourceInput(value) {
+  setDirty(true);
+  if (state.currentMode === 'split') {
+    const preview = document.getElementById('split-preview');
+    preview.innerHTML = parseMD(value);
+    applyHighlight(preview);
+  }
+}
+
+function syncScroll(sourceEl) {
+  const ratio = sourceEl.scrollTop / (sourceEl.scrollHeight - sourceEl.clientHeight);
+  const previewWrap = document.getElementById('split-preview-wrap');
+  previewWrap.scrollTop = ratio * (previewWrap.scrollHeight - previewWrap.clientHeight);
+}
+
+function setDirty(dirty) {
+  state.isDirty = dirty;
+  document.getElementById('dirty-dot').classList.toggle('visible', dirty);
+}
+
+// ─────────────────────────────────────────────
+// File tree rendering
+// ─────────────────────────────────────────────
+function renderTree() {
+  const container = document.getElementById('file-tree');
+  if (!state.libraries.length) {
+    container.innerHTML = '<div style="padding:16px 12px;color:var(--text-3);font-size:12px;text-align:center">フォルダを追加してください</div>';
+    return;
+  }
+  container.innerHTML = '';
+  state.libraries.forEach(lib => {
+    container.appendChild(buildLibraryNode(lib));
+  });
+}
+
+function buildLibraryNode(lib) {
+  const root = document.createElement('div');
+  root.className = 'library-root';
+  root.id = `lib-${lib.id}`;
+
+  const header = document.createElement('div');
+  header.className = 'library-root-header';
+  header.innerHTML = `
+    <span class="tree-chevron" id="chevron-${lib.id}">▼</span>
+    <span>📁</span>
+    <span class="tree-name">${escapeHtml(lib.name)}</span>
+    <button class="remove-lib" onclick="event.stopPropagation();confirmRemoveLibrary('${lib.id}')" title="ライブラリを削除">✕</button>
+  `;
+
+  const children = document.createElement('div');
+  children.id = `tree-children-${lib.id}`;
+  children.style.paddingLeft = '12px';
+
+  let collapsed = false;
+  header.addEventListener('click', () => {
+    collapsed = !collapsed;
+    children.style.display = collapsed ? 'none' : '';
+    document.getElementById(`chevron-${lib.id}`).textContent = collapsed ? '▶' : '▼';
+  });
+
+  root.appendChild(header);
+
+  const filtered = filterAndSort(lib.files);
+  filtered.forEach(node => children.appendChild(buildNode(node)));
+  root.appendChild(children);
+  return root;
+}
+
+function buildNode(node, depth = 0) {
+  if (node.type === 'dir') {
+    const wrap = document.createElement('div');
+    wrap.className = 'tree-folder';
+
+    const header = document.createElement('div');
+    header.className = 'tree-folder-header';
+    header.style.paddingLeft = `${depth * 12 + 8}px`;
+
+    let open = true;
+    const chevron = document.createElement('span');
+    chevron.className = 'tree-chevron';
+    chevron.textContent = '▼';
+
+    header.appendChild(chevron);
+    header.appendChild(Object.assign(document.createElement('span'), { className: 'tree-icon', textContent: '📁' }));
+    header.appendChild(Object.assign(document.createElement('span'), { className: 'tree-name', textContent: node.name }));
+
+    const childWrap = document.createElement('div');
+    const filtered = filterAndSort(node.children);
+    filtered.forEach(child => childWrap.appendChild(buildNode(child, depth + 1)));
+
+    header.addEventListener('click', () => {
+      open = !open;
+      childWrap.style.display = open ? '' : 'none';
+      chevron.textContent = open ? '▼' : '▶';
+    });
+
+    wrap.appendChild(header);
+    wrap.appendChild(childWrap);
+    return wrap;
+  }
+
+  // file node
+  const el = document.createElement('div');
+  el.className = 'tree-file';
+  el.dataset.path = node.path;
+  el.style.paddingLeft = `${depth * 12 + 8}px`;
+
+  const icon = node.ext === 'html' ? '📄' : '📝';
+  const badge = node.ext === 'html'
+    ? '<span class="file-type-badge badge-html">HTML</span>'
+    : '<span class="file-type-badge badge-md">MD</span>';
+  const size = formatSize(node.size);
+  const date = formatDate(node.modified);
+
+  el.innerHTML = `
+    <span class="tree-icon">${icon}</span>
+    <span class="tree-name" title="${escapeHtml(node.path)}">${escapeHtml(node.name)}</span>
+    ${badge}
+    <span class="tree-meta">${date}</span>
+  `;
+
+  el.addEventListener('click', () => openFile(node));
+  return el;
+}
+
+function filterAndSort(nodes) {
+  let items = [...nodes];
+
+  // filter by type
+  if (state.filter !== 'all') {
+    items = items.map(n => {
+      if (n.type === 'dir') {
+        const filtered = filterAndSort(n.children);
+        return filtered.length ? { ...n, children: filtered } : null;
+      }
+      return n.ext === state.filter ? n : null;
+    }).filter(Boolean);
+  }
+
+  // filter by search
+  if (state.searchQuery) {
+    const q = state.searchQuery.toLowerCase();
+    items = items.map(n => {
+      if (n.type === 'dir') {
+        const filtered = filterAndSort(n.children);
+        return filtered.length ? { ...n, children: filtered } : null;
+      }
+      return n.name.toLowerCase().includes(q) ? n : null;
+    }).filter(Boolean);
+  }
+
+  // sort files (dirs always first)
+  const dirs = items.filter(n => n.type === 'dir');
+  let files = items.filter(n => n.type === 'file');
+
+  const [key, dir] = state.sort.split('-');
+  files.sort((a, b) => {
+    let va = key === 'date' ? a.modified : a.name.toLowerCase();
+    let vb = key === 'date' ? b.modified : b.name.toLowerCase();
+    if (va < vb) return dir === 'asc' ? -1 : 1;
+    if (va > vb) return dir === 'asc' ? 1 : -1;
+    return 0;
+  });
+
+  return [...dirs, ...files];
+}
+
+// ─────────────────────────────────────────────
+// Export: MD → standalone HTML
+// ─────────────────────────────────────────────
+function exportHTML() {
+  if (!state.currentFile || state.currentFile.type !== 'md') return;
+  const content = getEditorContent();
+  const title = state.currentFile.handle.name.replace(/\.md$/i, '');
+  const rendered = parseMD(content);
+
+  const html = `<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>${escapeHtml(title)}</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,'Helvetica Neue','Hiragino Sans',sans-serif;background:#fff;color:#1a1a1a;line-height:1.75;padding:16px}
+article{max-width:720px;margin:0 auto;padding:24px 0 64px}
+h1{font-size:1.8em;font-weight:700;margin:0 0 .5em;border-bottom:2px solid #e8e8e8;padding-bottom:.3em}
+h2{font-size:1.4em;font-weight:700;margin:1.5em 0 .5em;border-bottom:1px solid #e8e8e8;padding-bottom:.2em}
+h3{font-size:1.15em;font-weight:600;margin:1.2em 0 .4em}
+h4{font-size:1em;font-weight:600;margin:1em 0 .3em}
+p{margin:.8em 0}
+ul,ol{margin:.6em 0;padding-left:1.6em}
+li{margin:.25em 0}
+blockquote{margin:1em 0;padding:.5em 1em;border-left:4px solid #d0d0d0;color:#555;background:#f8f8f8;border-radius:0 4px 4px 0}
+code{font-family:'SF Mono',Menlo,monospace;font-size:.88em;background:#f0f0f0;padding:.15em .35em;border-radius:3px}
+pre{margin:1em 0;background:#1e1e20;border-radius:8px;overflow-x:auto;padding:16px 20px}
+pre code{background:none;padding:0;color:#e8e8ea;font-size:.85em}
+hr{border:none;border-top:1px solid #e0e0e0;margin:1.5em 0}
+a{color:#3a7eef;text-decoration:none}
+a:hover{text-decoration:underline}
+table{border-collapse:collapse;width:100%;margin:1em 0}
+th,td{border:1px solid #e0e0e0;padding:6px 12px;text-align:left}
+th{background:#f5f5f5;font-weight:600}
+img{max-width:100%;border-radius:4px}
+strong{font-weight:700}
+em{font-style:italic}
+@media(max-width:600px){body{padding:12px}article{padding:16px 0 48px}h1{font-size:1.5em}h2{font-size:1.25em}pre{border-radius:6px;padding:12px 14px}}
+</style>
+</head>
+<body>
+<article>
+${rendered}
+</article>
+</body>
+</html>`;
+
+  const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = title + '.html';
+  a.click();
+  URL.revokeObjectURL(url);
+  toast('HTMLとして書き出しました', 'success');
+}
+
+function printFile() {
+  if (!state.currentFile) return;
+  if (state.currentFile.type === 'html') {
+    document.getElementById('html-iframe').contentWindow.print();
+  } else {
+    window.print();
+  }
+}
+
+// ─────────────────────────────────────────────
+// Filter / Sort / Search
+// ─────────────────────────────────────────────
+function setFilter(f) {
+  state.filter = f;
+  document.querySelectorAll('.filter-tab').forEach(el => {
+    el.classList.toggle('active', el.dataset.filter === f);
+  });
+  renderTree();
+}
+
+function setSort(s) {
+  state.sort = s;
+  renderTree();
+}
+
+let searchTimer;
+function onSearch(q) {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => {
+    state.searchQuery = q;
+    renderTree();
+  }, 250);
+}
+
+// ─────────────────────────────────────────────
+// Utilities
+// ─────────────────────────────────────────────
+function escapeHtml(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function formatSize(bytes) {
+  if (!bytes) return '';
+  if (bytes < 1024) return bytes + 'B';
+  return (bytes / 1024).toFixed(0) + 'KB';
+}
+
+function formatDate(ts) {
+  if (!ts) return '';
+  const d = new Date(ts);
+  return `${d.getFullYear().toString().slice(2)}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`;
+}
+
+function confirmRemoveLibrary(id) {
+  const lib = state.libraries.find(l => l.id === id);
+  if (lib && confirm(`「${lib.name}」をライブラリから削除しますか？\n（ファイル自体は削除されません）`)) {
+    removeLibrary(id);
+  }
+}
+
+function toast(msg, type = '') {
+  const container = document.getElementById('toast-container');
+  const el = document.createElement('div');
+  el.className = `toast${type ? ' ' + type : ''}`;
+  el.textContent = msg;
+  container.appendChild(el);
+  setTimeout(() => el.remove(), 3000);
+}
+
+// ─────────────────────────────────────────────
+// Keyboard shortcuts
+// ─────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  if ((e.metaKey || e.ctrlKey) && e.key === 's') {
+    e.preventDefault();
+    saveFile();
+  }
+});
+
+// ─────────────────────────────────────────────
+// Sidebar toggle
+// ─────────────────────────────────────────────
+document.getElementById('sidebar-toggle').addEventListener('click', () => {
+  document.getElementById('app').classList.toggle('sidebar-collapsed');
+});
+
+// ─────────────────────────────────────────────
+// Init
+// ─────────────────────────────────────────────
+async function init() {
+  // Protocol check
+  if (location.protocol === 'file:') {
+    document.getElementById('proto-warn').style.display = 'block';
+  }
+
+  // Check File System Access API
+  if (!window.showDirectoryPicker) {
+    toast('このブラウザは File System Access API に対応していません。Chrome または Edge を使用してください。', 'error');
+    return;
+  }
+
+  // Restore libraries from IndexedDB
+  try {
+    const records = await DB.getAll();
+    const restoreContainer = document.getElementById('file-tree');
+
+    for (const { id, handle, name } of records) {
+      const perm = await handle.queryPermission({ mode: 'readwrite' });
+      if (perm === 'granted') {
+        await loadLibrary({ id, handle, name });
+      } else {
+        // Show restore banner
+        const banner = document.createElement('div');
+        banner.className = 'restore-banner';
+        banner.id = `restore-${id}`;
+        banner.innerHTML = `
+          <span>📁 ${escapeHtml(name)}</span>
+          <button onclick="restoreLibrary('${id}', this.__handle, '${escapeHtml(name)}')">アクセスを復元</button>
+        `;
+        // store handle reference on button
+        banner.querySelector('button').__handle = handle;
+        // Insert before file tree
+        document.getElementById('sidebar').insertBefore(banner, restoreContainer);
+      }
+    }
+  } catch (e) {
+    console.warn('IndexedDB restore failed:', e);
+  }
+}
+
+init();
+</script>
+</body>
+</html>
