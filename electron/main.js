@@ -18,7 +18,12 @@ function createWindow() {
     },
   });
 
-  win.loadFile(path.join(__dirname, '..', 'viewer.html'));
+  // パッケージ済み: Resources/viewer.html、開発時: ../viewer.html
+  const viewerPath = app.isPackaged
+    ? path.join(process.resourcesPath, 'viewer.html')
+    : path.join(__dirname, '..', 'viewer.html');
+
+  win.loadFile(viewerPath);
 
   // Native menu
   const template = [

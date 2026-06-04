@@ -15,7 +15,7 @@
       "**/*",
       "!node_modules/.cache"
     ],
-    "extraFiles": [
+    "extraResources": [
       { "from": "../viewer.html", "to": "viewer.html" }
     ],
     "mac": {
