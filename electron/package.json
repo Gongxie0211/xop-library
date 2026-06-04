@@ -1,0 +1,13 @@
+{
+  "name": "xop-viewer",
+  "productName": "XOP Viewer",
+  "version": "1.0.0",
+  "description": "HTML / MD / PDF / Excel / PowerPoint Viewer",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "devDependencies": {
+    "electron": "^28.3.0"
+  }
+}

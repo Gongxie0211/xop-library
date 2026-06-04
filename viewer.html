@@ -588,6 +588,19 @@ html,body {
   background: var(--accent);
 }
 
+/* ── Electron titlebar (macOS hiddenInset) ── */
+body.xop-electron-mac #topbar {
+  padding-left: 80px;
+  -webkit-app-region: drag;
+}
+body.xop-electron-mac #topbar button,
+body.xop-electron-mac #topbar input,
+body.xop-electron-mac #topbar select,
+body.xop-electron-mac #mode-buttons,
+body.xop-electron-mac #action-buttons {
+  -webkit-app-region: no-drag;
+}
+
 /* ── Scrollbar for source textarea ── */
 textarea::-webkit-scrollbar { width: 6px; height: 6px; }
 textarea::-webkit-scrollbar-thumb { background: #555; border-radius: 3px; }
@@ -928,6 +941,16 @@ textarea::-webkit-scrollbar-thumb { background: #555; border-radius: 3px; }
 // ─────────────────────────────────────────────
 // State
 // ─────────────────────────────────────────────
+// ─────────────────────────────────────────────
+// Electron detection
+// ─────────────────────────────────────────────
+const isElectron = !!window.electronAPI?.isElectron;
+if (isElectron) {
+  window.electronAPI.platform().then(p => {
+    if (p === 'darwin') document.body.classList.add('xop-electron-mac');
+  });
+}
+
 const state = {
   libraries: [],
   currentFile: null,
@@ -997,6 +1020,15 @@ const DB = (() => {
 const pendingHandles = new Map(); // id → handle (for restore banners)
 
 async function addLibrary() {
+  if (isElectron) {
+    const dirPath = await window.electronAPI.selectDirectory();
+    if (!dirPath) return;
+    const name = dirPath.replace(/\\/g, '/').split('/').pop();
+    const id = `lib_${Date.now()}`;
+    saveElectronLibs([...getElectronLibs(), { id, dirPath, name }]);
+    await loadLibraryElectron({ id, dirPath, name });
+    return;
+  }
   if (!window.showDirectoryPicker) {
     toast('File System Access API が使えません。Chrome/Edge を使用し、localhost 経由で開いてください。', 'error');
     return;
@@ -1005,19 +1037,63 @@ async function addLibrary() {
     const handle = await window.showDirectoryPicker({ mode: 'readwrite' });
     const id = `lib_${Date.now()}`;
     await DB.put({ id, handle, name: handle.name });
-
-    // Placeholder while scanning
     const treeEl = document.getElementById('file-tree');
     const placeholder = document.createElement('div');
     placeholder.className = 'tree-loading';
     placeholder.id = `scan-spinner-${id}`;
     placeholder.innerHTML = `<span class="spinner"></span><span>${escapeHtml(handle.name)} をスキャン中…</span>`;
     treeEl.appendChild(placeholder);
-
     await loadLibrary({ id, handle, name: handle.name }, false);
   } catch (e) {
     if (e.name !== 'AbortError') toast(`フォルダを開けませんでした: ${e.message}`, 'error');
   }
+}
+
+// ── Electron library helpers ──────────────────
+function getElectronLibs() {
+  try { return JSON.parse(localStorage.getItem('xop-electron-libs') || '[]'); } catch { return []; }
+}
+function saveElectronLibs(libs) {
+  localStorage.setItem('xop-electron-libs', JSON.stringify(libs.map(({ id, dirPath, name }) => ({ id, dirPath, name }))));
+}
+
+async function loadLibraryElectron({ id, dirPath, name }) {
+  const treeEl = document.getElementById('file-tree');
+  const placeholder = document.createElement('div');
+  placeholder.className = 'tree-loading';
+  placeholder.id = `scan-spinner-${id}`;
+  placeholder.innerHTML = `<span class="spinner"></span><span>${escapeHtml(name)} をスキャン中…</span>`;
+  treeEl.appendChild(placeholder);
+
+  const files = await scanDirElectron(dirPath, libId = id);
+  placeholder.remove();
+
+  const lib = { id, dirPath, name, files };
+  const idx = state.libraries.findIndex(l => l.id === id);
+  if (idx >= 0) state.libraries[idx] = lib;
+  else state.libraries.push(lib);
+  renderTree();
+}
+
+async function scanDirElectron(dirPath, libId) {
+  let entries;
+  try { entries = await window.electronAPI.readDir(dirPath); } catch { return []; }
+  const typeMap = { html:'html', htm:'html', md:'md', markdown:'md', pdf:'pdf', xlsx:'xlsx', xls:'xlsx', csv:'xlsx', pptx:'pptx', ppt:'pptx' };
+  const files = [];
+  for (const e of entries) {
+    const sep = dirPath.includes('\\') ? '\\' : '/';
+    const fullPath = dirPath.replace(/[/\\]$/, '') + sep + e.name;
+    if (e.isDirectory) {
+      const sub = await scanDirElectron(fullPath, libId);
+      if (sub.length) files.push({ type: 'dir', name: e.name, path: fullPath, children: sub });
+    } else {
+      const ext = e.name.split('.').pop().toLowerCase();
+      if (typeMap[ext]) {
+        files.push({ type: 'file', name: e.name, path: fullPath, ext: typeMap[ext], size: e.size, modified: e.modified, libId });
+      }
+    }
+  }
+  return files;
 }
 
 async function loadLibrary({ id, handle, name }, showLoading = false) {
@@ -1071,7 +1147,11 @@ async function restoreLibrary(id) {
 
 async function removeLibrary(id) {
   state.libraries = state.libraries.filter(l => l.id !== id);
-  await DB.remove(id);
+  if (isElectron) {
+    saveElectronLibs(getElectronLibs().filter(l => l.id !== id));
+  } else {
+    await DB.remove(id);
+  }
   if (state.currentFile?.libId === id) closeFile();
   renderTree();
 }
@@ -1109,9 +1189,16 @@ async function openFile(fileNode) {
     if (!confirm(`「${state.currentFile?.handle.name}」に未保存の変更があります。破棄しますか？`)) return;
   }
   try {
-    const file = await fileNode.handle.getFile();
     const isBinary = ['pdf', 'xlsx', 'pptx'].includes(fileNode.ext);
-    const content = isBinary ? await file.arrayBuffer() : await file.text();
+    let content;
+    if (isElectron) {
+      content = isBinary
+        ? await window.electronAPI.readFileBinary(fileNode.path)
+        : await window.electronAPI.readFileText(fileNode.path);
+    } else {
+      const file = await fileNode.handle.getFile();
+      content = isBinary ? await file.arrayBuffer() : await file.text();
+    }
     state.currentFile = { handle: fileNode.handle, path: fileNode.path, libId: fileNode.libId, type: fileNode.ext, content };
     state.isDirty = false;
     await renderFile();
@@ -1137,9 +1224,13 @@ async function saveFile() {
   if (!state.currentFile) return;
   try {
     const content = getEditorContent();
-    const writable = await state.currentFile.handle.createWritable();
-    await writable.write(content);
-    await writable.close();
+    if (isElectron) {
+      await window.electronAPI.writeFile(state.currentFile.path, content);
+    } else {
+      const writable = await state.currentFile.handle.createWritable();
+      await writable.write(content);
+      await writable.close();
+    }
     state.currentFile.content = content;
     setDirty(false);
     toast('保存しました', 'success');
@@ -2036,12 +2127,27 @@ window.addEventListener('resize', () => {
 // Init
 // ─────────────────────────────────────────────
 async function init() {
-  // Protocol check
+  // ── Electron path ─────────────────────────────
+  if (isElectron) {
+    const saved = getElectronLibs();
+    for (const lib of saved) {
+      await loadLibraryElectron(lib);
+    }
+    // Auto-open last file
+    let lastPath = null;
+    try { lastPath = localStorage.getItem('xop-last-path'); } catch {}
+    if (lastPath) {
+      const node = findFileByPath(lastPath);
+      if (node) openFile(node);
+    }
+    return;
+  }
+
+  // ── Browser path ──────────────────────────────
   if (location.protocol === 'file:') {
     document.getElementById('proto-warn').style.display = 'block';
   }
 
-  // Check File System Access API
   if (!window.showDirectoryPicker) {
     toast('このブラウザは File System Access API に対応していません。Chrome または Edge を使用してください。', 'error');
     return;
