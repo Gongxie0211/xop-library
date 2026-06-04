@@ -1,0 +1,33 @@
+{
+  "name": "xop-viewer",
+  "productName": "XOP Viewer",
+  "version": "1.0.0",
+  "description": "HTML / MD / PDF / Excel / PowerPoint Viewer",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --mac"
+  },
+  "build": {
+    "appId": "com.xop.viewer",
+    "productName": "XOP Viewer",
+    "files": [
+      "**/*",
+      "!node_modules/.cache"
+    ],
+    "extraResources": [
+      { "from": "../viewer.html", "to": "viewer.html" }
+    ],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": [{ "target": "dmg", "arch": ["arm64", "x64"] }]
+    },
+    "dmg": {
+      "title": "XOP Viewer"
+    }
+  },
+  "devDependencies": {
+    "electron": "^28.3.0",
+    "electron-builder": "^24.13.3"
+  }
+}
